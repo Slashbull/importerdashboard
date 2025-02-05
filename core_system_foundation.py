@@ -128,10 +128,11 @@ if df is not None:
     st.write(filtered_df.head(10))
     
     # ==================== UNIT SELECTION ====================
-    unit = st.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
-    display_column = "Quantity_Tons" if unit == "Tons" else "Quantity"
-    st.write("### Displaying in:", unit)
-    st.dataframe(filtered_df[[display_column]])
+    if "Quantity" in filtered_df.columns and "Quantity_Tons" in filtered_df.columns:
+        unit = st.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
+        display_column = "Quantity_Tons" if unit == "Tons" else "Quantity"
+        st.write("### Displaying in:", unit)
+        st.dataframe(filtered_df[[display_column]])
     
     # Logout Button
     if st.sidebar.button("Logout"):
