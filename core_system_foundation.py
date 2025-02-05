@@ -64,7 +64,7 @@ def load_google_sheets(url):
     """Load data from Google Sheets."""
     sheet_id = url.split("/d/")[1].split("/")[0]
     sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-    df = pd.read_csv(sheet_url)
+    df = pd.read_csv(sheet_url)  # Read the Google Sheets data
     return df
 
 if uploaded_file:
