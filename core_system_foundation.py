@@ -102,13 +102,9 @@ def dashboard():
         
         st.subheader("Key Metrics")
         total_imports = df["Quanity (Kgs)"].sum()
-        unique_exporters = df["Exporter"].nunique()
-        unique_consignees = df["Consignee"].nunique()
         
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Import Volume (Kgs)", f"{total_imports:,.2f}")
-        col2.metric("Unique Exporters", unique_exporters)
-        col3.metric("Unique Consignees", unique_consignees)
+        col1 = st.columns(1)
+        col1[0].metric("Total Import Volume (Kgs)", f"{total_imports:,.2f}")
         
         st.subheader("🏆 Top 5 Consignees by Import Volume")
         top_consignees = df.groupby("Consignee")["Quanity (Kgs)"].sum().top_k(5)
