@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 
 # ==================== MARKET OVERVIEW DASHBOARD ====================
-st.set_page_config(page_title="Market Overview Dashboard", layout="wide")
 st.title("📊 Market Overview Dashboard")
 
 # Load data from Core System Foundation
