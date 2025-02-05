@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import polars as pl
 import hashlib
 
 # ==================== LOGIN SYSTEM ====================
@@ -81,10 +80,10 @@ if df is not None:
     
     # ==================== DATA CLEANING & PROCESSING ====================
     
-    # Convert Quantity column to numeric (Kgs & Tons Toggle)
+    # Convert Quantity column to numeric and auto-generate Tons
     if "Quantity" in df.columns:
-        df["Quantity_Kgs"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
-        df["Quantity_Tons"] = df["Quantity_Kgs"] / 1000
+        df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
+        df["Quantity_Tons"] = df["Quantity"] / 1000
     
     # Convert Month column to numeric format
     month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
@@ -130,7 +129,7 @@ if df is not None:
     
     # ==================== UNIT SELECTION ====================
     unit = st.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
-    display_column = "Quantity_Tons" if unit == "Tons" else "Quantity_Kgs"
+    display_column = "Quantity_Tons" if unit == "Tons" else "Quantity"
     st.write("### Displaying in:", unit)
     st.dataframe(filtered_df[[display_column]])
     
