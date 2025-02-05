@@ -2,6 +2,7 @@ import streamlit as st
 import polars as pl
 import time
 from io import StringIO
+from market_overview_dashboard import market_dashboard
 
 # ---- Secure User Authentication ---- #
 USERS = {"admin": "admin123"}  # Simple Username & Password
@@ -13,6 +14,8 @@ if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
 if "session_start_time" not in st.session_state:
     st.session_state["session_start_time"] = time.time()
+if "current_screen" not in st.session_state:
+    st.session_state["current_screen"] = "Market Overview"
 
 # Auto logout after 30 min of inactivity with warning
 remaining_time = 1800 - (time.time() - st.session_state["session_start_time"])
@@ -20,6 +23,12 @@ if remaining_time <= 0:
     st.session_state["authenticated"] = False
     st.experimental_rerun()
 st.sidebar.warning(f"⚠️ Auto logout in {int(remaining_time // 60)} min {int(remaining_time % 60)} sec")
+
+# ---- Navigation Menu ---- #
+def navigation_menu():
+    st.sidebar.header("Navigation")
+    selected_screen = st.sidebar.selectbox("Choose Dashboard", ["Market Overview", "Competitor Insights", "Processed Data Download"])
+    st.session_state["current_screen"] = selected_screen
 
 # ---- Login Page ---- #
 def login():
@@ -42,90 +51,63 @@ def logout():
     st.session_state["uploaded_file"] = None
     st.experimental_rerun()
 
+# ---- Data Validation Function ---- #
+def validate_data(file):
+    required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Quanity (Kgs)", "Quanity (Tons)", "Month", "Year", "Consignee State"]
+    try:
+        df = pl.read_csv(StringIO(file.decode("utf-8")))
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"Missing Required Columns: {missing_columns}")
+            return False
+        return True
+    except Exception as e:
+        st.error(f"Error validating file: {e}")
+        return False
+
 # ---- File Upload Page ---- #
 def file_upload():
     st.title("📂 Upload Your Import Data")
     st.markdown("Only CSV files are supported.")
     uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"], help="Upload your CSV file")
     if uploaded_file is not None:
-        try:
-            st.session_state["uploaded_file"] = uploaded_file.getvalue()
-            st.success("File uploaded successfully! Processing data...")
-            st.button("Proceed to Dashboard", on_click=lambda: st.experimental_rerun())
-        except Exception as e:
-            st.error(f"Error processing file: {e}")
+        if validate_data(uploaded_file.getvalue()):
+            try:
+                st.session_state["uploaded_file"] = uploaded_file.getvalue()
+                st.success("File uploaded successfully! Redirecting to Market Overview...")
+                st.session_state["current_screen"] = "Market Overview"
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Error processing file: {e}")
 
-# ---- Data Schema Validation ---- #
-def validate_schema(df):
-    required_columns = {"SR NO.": pl.Int64, "Job No.": pl.Int64, "Consignee": pl.Utf8, "Exporter": pl.Utf8, "Quanity (Kgs)": pl.Utf8,
-                        "Quanity (Tons)": pl.Utf8, "Month": pl.Utf8, "Year": pl.Int64, "Consignee State": pl.Utf8}
-    for col, dtype in required_columns.items():
-        if col not in df.columns:
-            st.error(f"Missing required column: {col}")
-            return False
-        if df[col].dtype != dtype:
-            st.error(f"Column {col} has incorrect data type. Expected {dtype}, found {df[col].dtype}")
-            return False
-    return True
-
-# ---- Data Processing Function ---- #
-@st.cache_data(max_entries=10)
-def process_data(file):
-    df = pl.read_csv(StringIO(file.decode("utf-8")))
-    
-    if not validate_schema(df):
-        return None
-    
-    # Convert 'Quanity (Kgs)' and 'Quanity (Tons)' to numeric
-    df = df.with_columns([
-        pl.col("Quanity (Kgs)").str.replace(" Kgs", "").cast(pl.Float64),
-        pl.col("Quanity (Tons)").str.replace(" tons", "").cast(pl.Float64)
-    ])
-    
-    # Convert Month to Numeric
-    month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                 "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-    df = df.with_columns(pl.col("Month").replace(month_map))
-    
-    df = df.fill_null("N/A")
-    return df
-
-# ---- Dashboard Page ---- #
-def dashboard():
-    st.title("📊 Importer Decision-Making Dashboard")
-    st.sidebar.button("Logout", on_click=logout)
-    
-    df = process_data(st.session_state["uploaded_file"])
-    if df is not None:
-        st.write("### Processed Data Overview")
-        st.dataframe(df.head())
-        
-        st.subheader("Key Metrics")
-        total_imports = df["Quanity (Kgs)"].sum()
-        
-        col1 = st.columns(1)
-        col1[0].metric("Total Import Volume (Kgs)", f"{total_imports:,.2f}")
-        
-        st.subheader("🏆 Top 5 Consignees by Import Volume")
-        top_consignees = df.groupby("Consignee")["Quanity (Kgs)"].sum().top_k(5)
-        st.dataframe(top_consignees)
-        
-        st.subheader("🚢 Top 5 Exporters by Import Volume")
-        top_exporters = df.groupby("Exporter")["Quanity (Kgs)"].sum().top_k(5)
-        st.dataframe(top_exporters)
-
-        # Add Download Button
-        csv_data = df.write_csv()
-        st.download_button("📥 Download Processed Data", csv_data, "processed_data.csv", "text/csv")
+# ---- Processed Data Download Page ---- #
+def processed_data_download():
+    st.title("📥 Processed Data Download")
+    if st.session_state["uploaded_file"] is not None:
+        st.download_button("Download Uploaded CSV", st.session_state["uploaded_file"], "uploaded_data.csv", "text/csv")
     else:
-        st.warning("No file uploaded or invalid schema. Please upload a valid CSV file.")
+        st.warning("No data uploaded. Please upload a file first.")
+
+# ---- Competitor Insights Placeholder ---- #
+def competitor_insights():
+    st.title("Competitor Insights")
+    st.markdown("This section is under development. Advanced insights will be available soon.")
 
 # ---- Main Application Logic ---- #
 if not st.session_state["authenticated"]:
     login()
-elif not st.session_state["uploaded_file"]:
-    file_upload()
 else:
-    dashboard()
+    navigation_menu()
+    st.sidebar.button("Logout", on_click=logout)
+
+    if st.session_state["current_screen"] == "Market Overview":
+        if st.session_state["uploaded_file"] is not None:
+            market_dashboard(st.session_state["uploaded_file"])
+        else:
+            file_upload()
+    elif st.session_state["current_screen"] == "Competitor Insights":
+        competitor_insights()
+    elif st.session_state["current_screen"] == "Processed Data Download":
+        processed_data_download()
 
 # Save file as core_system_foundation.py
