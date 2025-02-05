@@ -71,7 +71,7 @@ def market_dashboard(uploaded_data):
 
     # Monthly Import Trends
     st.write("### Monthly Import Trends")
-    monthly_trends = filtered_data.groupby("Month")[quantity_col].sum().sort("Month")
+    monthly_trends = filtered_data.groupby("Month").agg(pl.sum(quantity_col)).sort("Month")
     fig, ax = plt.subplots()
     ax.plot(monthly_trends["Month"], monthly_trends[quantity_col], marker="o")
     ax.set_title("Monthly Import Trends")
