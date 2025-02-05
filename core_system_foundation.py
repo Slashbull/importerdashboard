@@ -21,7 +21,7 @@ if "current_screen" not in st.session_state:
 remaining_time = 1800 - (time.time() - st.session_state["session_start_time"])
 if remaining_time <= 0:
     st.session_state["authenticated"] = False
-    st.experimental_rerun()
+    st.rerun()
 st.sidebar.warning(f"⚠️ Auto logout in {int(remaining_time // 60)} min {int(remaining_time % 60)} sec")
 
 # ---- Navigation Menu ---- #
@@ -44,7 +44,7 @@ def login():
             st.session_state["authenticated"] = True
             st.session_state["session_start_time"] = time.time()
             st.session_state["current_screen"] = "Market Overview"  # Set default screen after login
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid Username or Password")
 
@@ -52,7 +52,7 @@ def login():
 def logout():
     st.session_state["authenticated"] = False
     st.session_state["uploaded_file"] = None
-    st.experimental_rerun()
+    st.rerun()
 
 # ---- Data Validation Function ---- #
 def validate_data(file):
@@ -79,7 +79,7 @@ def file_upload():
                 st.session_state["uploaded_file"] = uploaded_file.getvalue()
                 st.success("File uploaded successfully! Redirecting to Market Overview...")
                 st.session_state["current_screen"] = "Market Overview"
-                st.experimental_rerun()
+                st.rerun()
             except Exception as e:
                 st.error(f"Error processing file: {e}")
 
