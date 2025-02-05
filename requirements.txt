@@ -3,3 +3,4 @@ pandas
 polars
 gspread
 oauth2client
+gspread_dataframe
