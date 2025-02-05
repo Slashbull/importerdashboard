@@ -95,7 +95,7 @@ if "filtered_data" in st.session_state:
         if "Quantity" in df.columns:
             st.write("### Data Summary")
             col1, col2, col3 = st.columns(3)
-            col1.metric("Total Imports", f"{df['Quantity_Display'].sum():,.0f} {unit_toggle}")
+            col1.metric("Total Imports", f"{df['Quantity_Display'].sum():,.0f} {unit_toggle}" if 'Quantity_Display' in df.columns else "Data Unavailable")
             col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity_Display"].sum().idxmax())
             col3.metric("Top Exporter", df.groupby("Exporter")["Quantity_Display"].sum().idxmax())
             
