@@ -40,26 +40,9 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==================== DATA UPLOAD SYSTEM ====================
-st.title("Importer Dashboard - Data Upload & Processing")
+st.title("Importer Dashboard - Google Sheets Upload")
 
-uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
-gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
-
-# Function to load CSV/Excel file
-def load_data(file):
-    """Load CSV or Excel data into a Pandas DataFrame with proper column renaming."""
-    if file.name.endswith(".csv"):
-        df = pd.read_csv(file)
-    else:
-        df = pd.read_excel(file)
-    
-    # Standardize column names to remove typos and spaces
-    column_mapping = {
-        "Quanity": "Quantity",
-        "Month ": "Month"
-    }
-    df.rename(columns=column_mapping, inplace=True)
-    return df
+gsheet_url = st.text_input("Enter Google Sheets Link")
 
 # Function to load Google Sheets Data
 def load_google_sheets(url):
@@ -73,10 +56,8 @@ def load_google_sheets(url):
         st.error(f"Error loading data from Google Sheets: {e}")
         return None
 
-# Load data based on user input (File or Google Sheets URL)
-if uploaded_file:
-    df = load_data(uploaded_file)
-elif gsheet_url:
+# Load data based on Google Sheets URL
+if gsheet_url:
     df = load_google_sheets(gsheet_url)
 else:
     df = None
@@ -158,4 +139,4 @@ if df is not None:
     if st.sidebar.button("Logout"):
         logout()
 else:
-    st.error("No data available. Please upload a file or provide a valid Google Sheets link.")
+    st.error("No valid Google Sheets link provided. Please enter a valid Google Sheets URL.")
