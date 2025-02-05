@@ -6,59 +6,67 @@ import plotly.express as px
 st.set_page_config(page_title="Market Overview Dashboard", layout="wide")
 st.title("📊 Market Overview Dashboard")
 
-# Load the processed data from Core System
+# Load data from Core System Foundation
 @st.cache_data
 def load_data():
-    """Function to load processed data from Core System."""
     return st.session_state.get("filtered_data", pd.DataFrame())
 
 df = load_data()
 
 if not df.empty:
-    st.sidebar.header("📌 Filters")
+    # ==================== FILTER SYSTEM ====================
+    st.sidebar.header("📌 Advanced Filters")
     selected_state = st.sidebar.multiselect("Select State", options=df["Consignee State"].unique(), default=df["Consignee State"].unique())
     selected_exporter = st.sidebar.multiselect("Select Exporter", options=df["Exporter"].unique(), default=df["Exporter"].unique())
     selected_consignees = st.sidebar.multiselect("Select Consignee", options=df["Consignee"].unique(), default=df["Consignee"].unique())
-    selected_months = st.sidebar.multiselect("Select Month", options=df["Month"].unique(), default=df["Month"].unique())
+    selected_months = st.sidebar.multiselect("Select Month", options=["All"] + list(df["Month"].unique()), default=["All"])
+    selected_years = st.sidebar.multiselect("Select Year", options=["All"] + list(df["Year"].unique()), default=["All"]) 
+    unit_toggle = st.sidebar.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
 
     # Apply Filters
-    filtered_df = df[df["Consignee State"].isin(selected_state)]
-    filtered_df = filtered_df[filtered_df["Exporter"].isin(selected_exporter)]
-    filtered_df = filtered_df[filtered_df["Consignee"].isin(selected_consignees)]
-    filtered_df = filtered_df[filtered_df["Month"].isin(selected_months)]
+    df = df[df["Consignee State"].isin(selected_state)]
+    df = df[df["Exporter"].isin(selected_exporter)]
+    df = df[df["Consignee"].isin(selected_consignees)]
+    if "All" not in selected_months:
+        df = df[df["Month"].isin(selected_months)]
+    if "All" not in selected_years:
+        df = df[df["Year"].isin(selected_years)]
+
+    # Adjust for Unit Toggle
+    df["Quantity_Display"] = df["Quantity_Tons"] if unit_toggle == "Tons" else df["Quantity"]
 
     # ==================== KPI METRICS ====================
     st.subheader("📊 Key Performance Indicators")
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Imports (Kgs)", f"{filtered_df['Quantity'].sum():,.0f}")
-    col2.metric("Top Importing State", filtered_df.groupby("Consignee State")["Quantity"].sum().idxmax())
-    col3.metric("Top Exporter", filtered_df.groupby("Exporter")["Quantity"].sum().idxmax())
+    col1.metric("Total Imports", f"{df['Quantity_Display'].sum():,.0f} {unit_toggle}")
+    col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity_Display"].sum().idxmax())
+    col3.metric("Top Exporter", df.groupby("Exporter")["Quantity_Display"].sum().idxmax())
     
     # ==================== IMPORT TRENDS ====================
     st.subheader("📈 Monthly Import Trends")
-    monthly_trends = filtered_df.groupby("Month")["Quantity"].sum().reset_index()
-    fig = px.line(monthly_trends, x="Month", y="Quantity", markers=True, title="Monthly Import Trends")
+    monthly_trends = df.groupby("Month")["Quantity_Display"].sum().reset_index()
+    fig = px.line(monthly_trends, x="Month", y="Quantity_Display", markers=True, title="Monthly Import Trends")
     st.plotly_chart(fig, use_container_width=True)
     
     # ==================== STATE-WISE IMPORT DISTRIBUTION ====================
     st.subheader("🌍 State-Wise Import Distribution")
-    state_distribution = filtered_df.groupby("Consignee State")["Quantity"].sum().reset_index()
-    fig = px.bar(state_distribution, x="Consignee State", y="Quantity", title="State-Wise Import Distribution", text_auto=True)
+    state_distribution = df.groupby("Consignee State")["Quantity_Display"].sum().reset_index()
+    fig = px.bar(state_distribution, x="Consignee State", y="Quantity_Display", title="State-Wise Import Distribution", text_auto=True)
     st.plotly_chart(fig, use_container_width=True)
     
     # ==================== EXPORTER PERFORMANCE ====================
     st.subheader("🚢 Exporter Performance")
-    exporter_performance = filtered_df.groupby("Exporter")["Quantity"].sum().nlargest(10).reset_index()
-    fig = px.bar(exporter_performance, x="Exporter", y="Quantity", title="Top 10 Exporters", text_auto=True)
+    exporter_performance = df.groupby("Exporter")["Quantity_Display"].sum().nlargest(10).reset_index()
+    fig = px.bar(exporter_performance, x="Exporter", y="Quantity_Display", title="Top 10 Exporters", text_auto=True)
     st.plotly_chart(fig, use_container_width=True)
     
     # ==================== SMART ALERTS ====================
     st.subheader("⚠️ Smart Alerts")
     alerts = []
-    avg_monthly_import = filtered_df.groupby("Month")["Quantity"].sum().mean()
+    avg_monthly_import = df.groupby("Month")["Quantity_Display"].sum().mean()
     
     for index, row in monthly_trends.iterrows():
-        if row["Quantity"] < 0.7 * avg_monthly_import:
+        if row["Quantity_Display"] < 0.7 * avg_monthly_import:
             alerts.append(f"🚨 Drop in imports for {row['Month']} (Below 70% of average)")
     
     if alerts:
@@ -72,15 +80,15 @@ if not df.empty:
     export_format = st.sidebar.radio("Select Format", ["CSV", "Excel"])
     if st.sidebar.button("Download Filtered Data"):
         if export_format == "CSV":
-            filtered_df.to_csv("filtered_data.csv", index=False)
+            df.to_csv("filtered_data.csv", index=False)
             st.sidebar.download_button("Download CSV", open("filtered_data.csv", "rb"), "filtered_data.csv", "text/csv")
         else:
-            filtered_df.to_excel("filtered_data.xlsx", index=False)
+            df.to_excel("filtered_data.xlsx", index=False)
             st.sidebar.download_button("Download Excel", open("filtered_data.xlsx", "rb"), "filtered_data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     # Logout Button
     if st.sidebar.button("Logout"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
 else:
     st.error("No data available. Please upload a file in the Core System.")
