@@ -68,7 +68,7 @@ if not st.session_state["data_uploaded"]:
         df = load_data(uploaded_file)
         if df is not None:
             if "Quantity" in df.columns:
-                df["Quantity_Tons"] = df["Quantity"] / 1000
+                df["Quantity_Tons"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0) / 1000
             st.session_state["filtered_data"] = df.copy()
             st.session_state["data_uploaded"] = True
             st.experimental_rerun()
