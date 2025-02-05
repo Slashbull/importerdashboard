@@ -71,40 +71,18 @@ if not st.session_state["data_uploaded"]:
                 df["Quantity_Tons"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0) / 1000
             st.session_state["filtered_data"] = df.copy()
             st.session_state["data_uploaded"] = True
-            st.experimental_rerun()
+            st.rerun()
     st.stop()
 
 # ==================== DASHBOARD SELECTION ====================
 st.sidebar.header("Select Dashboard")
 dashboard_choice = st.sidebar.radio("Choose Dashboard", ["Market Overview", "Competitor Insights"])
 
-# ==================== FILTER SYSTEM ====================
-st.sidebar.subheader("Filters")
-unit_toggle = st.sidebar.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
+if dashboard_choice == "Market Overview":
+    import market_overview_dashboard  # Loads Market Overview separately
+elif dashboard_choice == "Competitor Insights":
+    import competitor_insights_dashboard  # Loads Competitor Insights separately
 
-if "filtered_data" in st.session_state:
-    df = st.session_state["filtered_data"].copy()
-    if unit_toggle == "Tons":
-        df["Quantity_Display"] = df["Quantity_Tons"]
-    else:
-        df["Quantity_Display"] = df["Quantity"]
-    
-    # ==================== MARKET OVERVIEW SCREEN ====================
-    if dashboard_choice == "Market Overview":
-        st.subheader("Market Overview")
-        if "Quantity" in df.columns:
-            st.write("### Data Summary")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Imports", f"{df['Quantity_Display'].sum():,.0f} {unit_toggle}" if 'Quantity_Display' in df.columns else "Data Unavailable")
-            col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity_Display"].sum().idxmax())
-            col3.metric("Top Exporter", df.groupby("Exporter")["Quantity_Display"].sum().idxmax())
-            
-            st.write("### Monthly Import Trends")
-            monthly_trends = df.groupby("Month")["Quantity_Display"].sum().reset_index()
-            st.line_chart(monthly_trends, x="Month", y="Quantity_Display")
-        else:
-            st.error("Quantity column missing in the dataset.")
-    
 # Logout Button
 if st.sidebar.button("Logout"):
     logout()
