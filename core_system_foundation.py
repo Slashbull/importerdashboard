@@ -20,7 +20,7 @@ def login():
     if st.button("Login"):
         if username in USERS and USERS[username] == password:
             st.session_state["authenticated"] = True
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Invalid Username or Password")
 
@@ -28,7 +28,7 @@ def login():
 def logout():
     st.session_state["authenticated"] = False
     st.session_state["uploaded_file"] = None
-    st.rerun()
+    st.experimental_rerun()
 
 # ---- File Upload Page ---- #
 def file_upload():
@@ -40,7 +40,7 @@ def file_upload():
             file_bytes = uploaded_file.getvalue()
             st.session_state["uploaded_file"] = file_bytes
             st.success("File uploaded successfully!")
-            st.button("Proceed to Dashboard", on_click=lambda: st.rerun())
+            st.button("Proceed to Dashboard", on_click=lambda: st.experimental_rerun())
         except Exception as e:
             st.error(f"Error processing file: {e}")
 
