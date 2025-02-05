@@ -15,10 +15,13 @@ def market_dashboard(uploaded_data):
     @st.cache_data(max_entries=10)
     def load_data(data):
         df = pl.read_csv(StringIO(data.decode("utf-8")))
-        df = df.with_columns([
-            pl.when(pl.col("Quanity (Kgs)").str.contains(" Kgs")).then(pl.col("Quanity (Kgs)").str.replace(" Kgs", "")).otherwise(pl.col("Quanity (Kgs)")).cast(pl.Float64),
-            pl.when(pl.col("Quanity (Tons)").str.contains(" tons")).then(pl.col("Quanity (Tons)").str.replace(" tons", "")).otherwise(pl.col("Quanity (Tons)")).cast(pl.Float64)
-        ])
+        
+        # Handle missing columns gracefully
+        required_columns = ["Quanity (Kgs)", "Quanity (Tons)", "Month", "Year", "Consignee State"]
+        for col in required_columns:
+            if col not in df.columns:
+                df = df.with_columns(pl.lit(None).alias(col))
+                st.warning(f"⚠️ Column '{col}' was missing and has been added with default values.")
         
         # Convert Quantity columns to numeric
         if "Quanity (Kgs)" in df.columns:
@@ -35,6 +38,8 @@ def market_dashboard(uploaded_data):
             st.error("🚨 Error: 'Month' column is missing in uploaded data.")
             return None
         
+        # Fill missing values
+        df = df.fill_null("Unknown")
         return df
 
     df = load_data(uploaded_data)
@@ -93,26 +98,6 @@ def market_dashboard(uploaded_data):
         else:
             st.warning("No data available for selected filters.")
     
-    # Top 5 States by Import Volume
-    st.write("### Top 5 States by Import Volume")
-    top_states = filtered_data.groupby("Consignee State")[quantity_col].sum().sort(quantity_col, reverse=True).head(5)
-    fig, ax = plt.subplots()
-    ax.bar(top_states["Consignee State"], top_states[quantity_col])
-    ax.set_title("Top 5 States by Import Volume")
-    ax.set_xlabel("State")
-    ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
-    st.pyplot(fig)
-
-    # Top 5 Exporters by Import Volume
-    st.write("### Top 5 Exporters by Import Volume")
-    top_exporters = filtered_data.groupby("Exporter")[quantity_col].sum().sort(quantity_col, reverse=True).head(5)
-    fig, ax = plt.subplots()
-    ax.bar(top_exporters["Exporter"], top_exporters[quantity_col])
-    ax.set_title("Top 5 Exporters by Import Volume")
-    ax.set_xlabel("Exporter")
-    ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
-    st.pyplot(fig)
-
     # ---- Download Button ---- #
     st.download_button("📥 Download Filtered Data", filtered_data.write_csv(), "filtered_data.csv", "text/csv")
 
