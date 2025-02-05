@@ -1,6 +1,7 @@
 streamlit
 pandas
 polars
+plotly
 gspread
 oauth2client
 gspread_dataframe
