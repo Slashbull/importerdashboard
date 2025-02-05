@@ -107,6 +107,7 @@ else:
         if st.session_state["uploaded_file"] is not None:
             market_dashboard(st.session_state["uploaded_file"])
         else:
+            st.warning("No file uploaded. Please upload a valid CSV file.")
             file_upload()
     elif st.session_state["current_screen"] == "Competitor Insights":
         competitor_insights()
