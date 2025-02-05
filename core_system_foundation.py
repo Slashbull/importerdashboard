@@ -1,15 +1,10 @@
 import streamlit as st
 import pandas as pd
-import hashlib
 import polars as pl
 from io import StringIO
 
 # ---- Secure User Authentication ---- #
-# Updated hashed password (generated using SHA-256)
-USERS = {"admin": "e99a18c428cb38d5f260853678922e03abd8333d1682b8894b3a78897eb8f519"}  # 'admin123'
-
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+USERS = {"admin": "admin123"}  # Simple Username & Password
 
 # ---- Session State Management ---- #
 if "authenticated" not in st.session_state:
@@ -23,7 +18,7 @@ def login():
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Login"):
-        if username in USERS and USERS[username] == hash_password(password):
+        if username in USERS and USERS[username] == password:
             st.session_state["authenticated"] = True
             st.rerun()
         else:
@@ -69,3 +64,5 @@ elif not st.session_state["uploaded_file"]:
     file_upload()
 else:
     dashboard()
+
+# Save file as core_system_foundation.py
