@@ -16,14 +16,14 @@ def market_dashboard(uploaded_data):
     def load_data(data):
         df = pl.read_csv(StringIO(data.decode("utf-8")))
         
-        # Handle missing columns gracefully
+        # Ensure required columns exist
         required_columns = ["Quanity (Kgs)", "Quanity (Tons)", "Month", "Year", "Consignee State"]
         for col in required_columns:
             if col not in df.columns:
                 df = df.with_columns(pl.lit(None).alias(col))
                 st.warning(f"⚠️ Column '{col}' was missing and has been added with default values.")
         
-        # Convert Quantity columns to numeric
+        # Convert Quantity columns to numeric if they exist
         if "Quanity (Kgs)" in df.columns:
             df = df.with_columns(pl.col("Quanity (Kgs)").str.replace(" Kgs", "").cast(pl.Float64))
         if "Quanity (Tons)" in df.columns:
