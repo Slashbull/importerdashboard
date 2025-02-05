@@ -5,10 +5,11 @@ import polars as pl
 from io import StringIO
 
 # ---- Secure User Authentication ---- #
-USERS = {"admin": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd61b96f965"}  # Password: "password"
+# Updated hashed password (generated using SHA-256)
+USERS = {"admin": "e99a18c428cb38d5f260853678922e03abd8333d1682b8894b3a78897eb8f519"}  # 'admin123'
 
 def hash_password(password):
-    return hashlib.sha1(password.encode()).hexdigest()
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # ---- Session State Management ---- #
 if "authenticated" not in st.session_state:
