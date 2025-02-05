@@ -1,3 +1,4 @@
+
 import streamlit as st
 import polars as pl
 import matplotlib.pyplot as plt
@@ -16,8 +17,8 @@ def market_dashboard(uploaded_data):
     def load_data(data):
         df = pl.read_csv(StringIO(data.decode("utf-8")))
         df = df.with_columns([
-            pl.col("Quanity (Kgs)").str.replace(" Kgs", "").cast(pl.Float64),
-            pl.col("Quanity (Tons)").str.replace(" tons", "").cast(pl.Float64)
+            pl.when(pl.col("Quanity (Kgs)").str.contains(" Kgs")).then(pl.col("Quanity (Kgs)").str.replace(" Kgs", "")).otherwise(pl.col("Quanity (Kgs)")).cast(pl.Float64),
+            pl.when(pl.col("Quanity (Tons)").str.contains(" tons")).then(pl.col("Quanity (Tons)").str.replace(" tons", "")).otherwise(pl.col("Quanity (Tons)")).cast(pl.Float64)
         ])
         month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
                      "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
@@ -71,7 +72,7 @@ def market_dashboard(uploaded_data):
 
     # Monthly Import Trends
     st.write("### Monthly Import Trends")
-    monthly_trends = filtered_data.groupby("Month").agg(pl.sum(quantity_col)).sort("Month")
+    monthly_trends = filtered_data.groupby("Month").agg(pl.col(quantity_col).sum()).sort("Month")
     fig, ax = plt.subplots()
     ax.plot(monthly_trends["Month"], monthly_trends[quantity_col], marker="o")
     ax.set_title("Monthly Import Trends")
