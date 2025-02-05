@@ -1,78 +1,136 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from google.oauth2 import service_account
+import hashlib
 
-# ==================== GOOGLE AUTH & SHEETS ACCESS ====================
+# ==================== LOGIN SYSTEM ====================
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-# Load Google Service Account Credentials
-@st.cache_resource
-def get_gspread_client():
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
-    return gspread.authorize(credentials)
+# Dummy user credentials (Can be expanded for multi-user authentication)
+USER_CREDENTIALS = {
+    "admin": hash_password("importer@123")  # Change this password securely
+}
 
-gc = get_gspread_client()
+def authenticate_user(username, password):
+    if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == hash_password(password):
+        st.session_state["authenticated"] = True
+        st.session_state["username"] = username
+        return True
+    return False
 
-# Function to open or create Google Sheet
-def get_or_create_sheet(sheet_url, sheet_name="Processed Data"):
+def login():
+    st.sidebar.header("🔐 Login to Access Dashboard")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Login"):
+        if authenticate_user(username, password):
+            st.sidebar.success("✅ Login Successful!")
+        else:
+            st.sidebar.error("❌ Invalid Credentials")
+
+def logout():
+    st.session_state.clear()
+    st.experimental_rerun()
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    login()
+    st.stop()
+
+# ==================== DATA UPLOAD SYSTEM ====================
+st.title("Importer Dashboard - Data Upload & Processing")
+
+uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
+gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
+
+def load_data(file):
+    """Load CSV or Excel data into a Pandas DataFrame with proper column renaming."""
     try:
-        sheet_id = sheet_url.split("/d/")[1].split("/")[0]
-        sh = gc.open_by_key(sheet_id)
-        try:
-            worksheet = sh.worksheet(sheet_name)
-        except:
-            worksheet = sh.add_worksheet(title=sheet_name, rows="1000", cols="20")
-        return worksheet
+        with st.spinner("📂 Loading Data... Please wait."):
+            if file.name.endswith(".csv"):
+                df = pd.read_csv(file, low_memory=False)
+            else:
+                df = pd.read_excel(file)
+            
+            column_mapping = {"Quanity": "Quantity", "Month ": "Month"}
+            df.rename(columns=column_mapping, inplace=True)
+            return df
     except Exception as e:
-        st.error(f"Error accessing Google Sheets: {e}")
+        st.error(f"❌ Error loading file: {e}")
         return None
 
-# ==================== STREAMLIT UI ====================
-st.title("Importer Dashboard - Google Sheets Integration")
+def load_google_sheets(url):
+    """Load data from Google Sheets."""
+    try:
+        with st.spinner("📂 Fetching Data from Google Sheets... Please wait."):
+            sheet_id = url.split("/d/")[1].split("/")[0]
+            sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+            df = pd.read_csv(sheet_url)
+        return df
+    except Exception as e:
+        st.error(f"❌ Failed to load Google Sheets data: {e}")
+        return None
 
-gsheet_url = st.text_input("Enter Google Sheets Link")
-if gsheet_url:
-    worksheet = get_or_create_sheet(gsheet_url)
+if uploaded_file:
+    df = load_data(uploaded_file)
+elif gsheet_url:
+    df = load_google_sheets(gsheet_url)
 else:
-    worksheet = None
+    df = None
 
-# Load data from Google Sheets
-def load_google_sheets(worksheet):
-    try:
-        data = worksheet.get_all_records()
-        return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return None
-
-df = load_google_sheets(worksheet) if worksheet else None
-
-# Display data preview
-if df is not None and not df.empty:
+if df is not None:
     st.write("### Raw Data Preview:")
     st.write(df.head(10))
-
-    # ==================== DATA PROCESSING ====================
+    
+    # ==================== DATA CLEANING & PROCESSING ====================
     if "Quantity" in df.columns:
         df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
         df["Quantity_Tons"] = df["Quantity"] / 1000
-
+    
     month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
     if "Month" in df.columns:
         df["Month_Num"] = df["Month"].map(month_map)
-
+    
     st.write("### Processed Data Preview:")
     st.write(df.head(10))
-
-    # ==================== WRITE BACK TO GOOGLE SHEETS ====================
-    if st.button("Save Processed Data to Google Sheets"):
-        try:
-            worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-            st.success("✅ Data successfully saved to Google Sheets!")
-        except Exception as e:
-            st.error(f"❌ Error writing to Google Sheets: {e}")
-else:
-    st.warning("No data found. Please enter a valid Google Sheets link.")
+    
+    # ==================== FILTER SYSTEM ====================
+    st.sidebar.subheader("Filters")
+    years = sorted(df["Year"].dropna().astype(str).unique().tolist(), reverse=True)
+    states = sorted(df["Consignee State"].dropna().astype(str).unique().tolist())
+    suppliers = sorted(df["Exporter"].dropna().astype(str).unique().tolist())
+    consignees = sorted(df["Consignee"].dropna().astype(str).unique().tolist())
+    months = sorted(df["Month"].dropna().astype(str).unique().tolist())
+    
+    selected_years = st.sidebar.multiselect("Select Year", ["All"] + years, default=[years[0]] if years else ["All"])
+    selected_states = st.sidebar.multiselect("Select Consignee State", ["All"] + states, default=["All"])
+    selected_suppliers = st.sidebar.multiselect("Select Exporter", ["All"] + suppliers, default=["All"])
+    selected_consignees = st.sidebar.multiselect("Select Consignee", ["All"] + consignees, default=["All"])
+    selected_months = st.sidebar.multiselect("Select Month", ["All"] + months, default=["All"])
+    
+    st.write("### Filtered Data Preview:")
+    st.write(df.head(10))
+    
+    # ==================== UNIT SELECTION ====================
+    if "Quantity" in df.columns and "Quantity_Tons" in df.columns:
+        unit = st.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
+        display_column = "Quantity_Tons" if unit == "Tons" else "Quantity"
+        st.write("### Displaying in:", unit)
+        st.dataframe(df[[display_column]])
+    
+    # ==================== EXPORT DATA ====================
+    st.sidebar.subheader("📥 Export Data")
+    export_format = st.sidebar.radio("Select Format", ["CSV", "Excel"])
+    if st.sidebar.button("Download Filtered Data"):
+        if export_format == "CSV":
+            df.to_csv("filtered_data.csv", index=False)
+            st.sidebar.download_button("Download CSV", open("filtered_data.csv", "rb"), "filtered_data.csv", "text/csv")
+        else:
+            df.to_excel("filtered_data.xlsx", index=False)
+            st.sidebar.download_button("Download Excel", open("filtered_data.xlsx", "rb"), "filtered_data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    
+    # Logout Button
+    if st.sidebar.button("Logout"):
+        logout()
