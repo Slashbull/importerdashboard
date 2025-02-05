@@ -1,93 +1,101 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
+import polars as pl
+import matplotlib.pyplot as plt
+from io import StringIO
 
-# ==================== MARKET OVERVIEW DASHBOARD ====================
-st.title("📊 Market Overview Dashboard")
+# ---- Market Overview Dashboard ---- #
+def market_dashboard(uploaded_data):
+    st.title("📊 Market Overview Dashboard")
+    st.markdown("""
+    Gain insights into total imports, top states, suppliers, and trends.
+    Use filters to refine your analysis and explore market behavior.
+    """)
 
-# Load data from Core System Foundation
-@st.cache_data
-def load_data():
-    return st.session_state.get("filtered_data", pd.DataFrame())
+    # ---- Process Uploaded Data ---- #
+    @st.cache_data(max_entries=10)
+    def load_data(data):
+        df = pl.read_csv(StringIO(data.decode("utf-8")))
+        df = df.with_columns([
+            pl.col("Quanity (Kgs)").str.replace(" Kgs", "").cast(pl.Float64),
+            pl.col("Quanity (Tons)").str.replace(" tons", "").cast(pl.Float64),
+            pl.col("Month").alias("Month_Num")
+        ])
+        month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+                     "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+        df = df.with_columns(pl.col("Month").map_dict(month_map))
+        return df
 
-df = load_data()
+    df = load_data(uploaded_data)
 
-if not df.empty:
-    # ==================== FILTER SYSTEM ====================
-    st.sidebar.header("📌 Advanced Filters")
-    selected_state = st.sidebar.multiselect("Select State", options=df["Consignee State"].unique(), default=df["Consignee State"].unique())
-    selected_exporter = st.sidebar.multiselect("Select Exporter", options=df["Exporter"].unique(), default=df["Exporter"].unique())
-    selected_consignees = st.sidebar.multiselect("Select Consignee", options=df["Consignee"].unique(), default=df["Consignee"].unique())
-    selected_months = st.sidebar.multiselect("Select Month", options=["All"] + list(df["Month"].unique()), default=["All"])
-    selected_years = st.sidebar.multiselect("Select Year", options=["All"] + list(df["Year"].unique()), default=["All"]) 
-    unit_toggle = st.sidebar.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
+    # ---- Filters ---- #
+    st.sidebar.header("Filters")
+    selected_state = st.sidebar.selectbox("Select State", options=["All"] + df["Consignee State"].unique().to_list())
+    selected_consignee = st.sidebar.selectbox("Select Consignee", options=["All"] + df["Consignee"].unique().to_list())
+    selected_exporter = st.sidebar.selectbox("Select Exporter", options=["All"] + df["Exporter"].unique().to_list())
+    selected_month = st.sidebar.selectbox("Select Month", options=["All"] + df["Month"].unique().to_list())
+    selected_year = st.sidebar.selectbox("Select Year", options=["All"] + df["Year"].unique().to_list())
+    selected_product = st.sidebar.selectbox("Select Product", options=["All"] + df["Mark"].unique().to_list())
+    quantity_toggle = st.sidebar.radio("View Data As", ("Quantity (Kgs)", "Quantity (Tons)"))
 
     # Apply Filters
-    df = df[df["Consignee State"].isin(selected_state)]
-    df = df[df["Exporter"].isin(selected_exporter)]
-    df = df[df["Consignee"].isin(selected_consignees)]
-    if "All" not in selected_months:
-        df = df[df["Month"].isin(selected_months)]
-    if "All" not in selected_years:
-        df = df[df["Year"].isin(selected_years)]
+    filtered_data = df
+    if selected_state != "All":
+        filtered_data = filtered_data.filter(pl.col("Consignee State") == selected_state)
+    if selected_consignee != "All":
+        filtered_data = filtered_data.filter(pl.col("Consignee") == selected_consignee)
+    if selected_exporter != "All":
+        filtered_data = filtered_data.filter(pl.col("Exporter") == selected_exporter)
+    if selected_month != "All":
+        filtered_data = filtered_data.filter(pl.col("Month") == selected_month)
+    if selected_year != "All":
+        filtered_data = filtered_data.filter(pl.col("Year") == int(selected_year))
+    if selected_product != "All":
+        filtered_data = filtered_data.filter(pl.col("Mark") == selected_product)
 
-    # Adjust for Unit Toggle
-    df["Quantity_Display"] = df["Quantity_Tons"] if unit_toggle == "Tons" else df["Quantity"]
+    # Set Quantity Column
+    quantity_col = "Quanity (Kgs)" if quantity_toggle == "Quantity (Kgs)" else "Quanity (Tons)"
 
-    # ==================== KPI METRICS ====================
-    st.subheader("📊 Key Performance Indicators")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Imports", f"{df['Quantity_Display'].sum():,.0f} {unit_toggle}" if 'Quantity_Display' in df.columns else "Data Unavailable")
-    col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity_Display"].sum().idxmax())
-    col3.metric("Top Exporter", df.groupby("Exporter")["Quantity_Display"].sum().idxmax())
-    
-    # ==================== IMPORT TRENDS ====================
-    st.subheader("📈 Monthly Import Trends")
-    monthly_trends = df.groupby("Month")["Quantity_Display"].sum().reset_index()
-    fig = px.line(monthly_trends, x="Month", y="Quantity_Display", markers=True, title="Monthly Import Trends")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # ==================== STATE-WISE IMPORT DISTRIBUTION ====================
-    st.subheader("🌍 State-Wise Import Distribution")
-    state_distribution = df.groupby("Consignee State")["Quantity_Display"].sum().reset_index()
-    fig = px.bar(state_distribution, x="Consignee State", y="Quantity_Display", title="State-Wise Import Distribution", text_auto=True)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # ==================== EXPORTER PERFORMANCE ====================
-    st.subheader("🚢 Exporter Performance")
-    exporter_performance = df.groupby("Exporter")["Quantity_Display"].sum().nlargest(10).reset_index()
-    fig = px.bar(exporter_performance, x="Exporter", y="Quantity_Display", title="Top 10 Exporters", text_auto=True)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # ==================== SMART ALERTS ====================
-    st.subheader("⚠️ Smart Alerts")
-    alerts = []
-    avg_monthly_import = df.groupby("Month")["Quantity_Display"].sum().mean()
-    
-    for index, row in monthly_trends.iterrows():
-        if row["Quantity_Display"] < 0.7 * avg_monthly_import:
-            alerts.append(f"🚨 Drop in imports for {row['Month']} (Below 70% of average)")
-    
-    if alerts:
-        for alert in alerts:
-            st.warning(alert)
-    else:
-        st.success("✅ No critical alerts detected!")
+    # ---- Key Metrics ---- #
+    st.subheader("Key Metrics")
+    col1, col2 = st.columns(2)
+    col1.metric(f"Total Import Volume ({quantity_toggle})", f"{filtered_data[quantity_col].sum():,.2f}")
+    col2.metric("Unique Exporters", len(filtered_data["Exporter"].unique()))
 
-    # ==================== EXPORT DATA ====================
-    st.sidebar.subheader("📥 Export Data")
-    export_format = st.sidebar.radio("Select Format", ["CSV", "Excel"])
-    if st.sidebar.button("Download Filtered Data"):
-        if export_format == "CSV":
-            df.to_csv("filtered_data.csv", index=False)
-            st.sidebar.download_button("Download CSV", open("filtered_data.csv", "rb"), "filtered_data.csv", "text/csv")
-        else:
-            df.to_excel("filtered_data.xlsx", index=False)
-            st.sidebar.download_button("Download Excel", open("filtered_data.xlsx", "rb"), "filtered_data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    # ---- Visualizations ---- #
+    st.subheader("Visualizations")
 
-    # Logout Button
-    if st.sidebar.button("Logout"):
-        st.session_state.clear()
-        st.rerun()
-else:
-    st.error("No data available. Please upload a file in the Core System.")
+    # Monthly Import Trends
+    st.write("### Monthly Import Trends")
+    monthly_trends = filtered_data.groupby("Month_Num")[quantity_col].sum().sort("Month_Num")
+    fig, ax = plt.subplots()
+    ax.plot(monthly_trends["Month_Num"], monthly_trends[quantity_col], marker="o")
+    ax.set_title("Monthly Import Trends")
+    ax.set_xlabel("Month")
+    ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
+    ax.grid(True)
+    st.pyplot(fig)
+
+    # Top 5 States by Import Volume
+    st.write("### Top 5 States by Import Volume")
+    top_states = filtered_data.groupby("Consignee State")[quantity_col].sum().sort(quantity_col, reverse=True).head(5)
+    fig, ax = plt.subplots()
+    ax.bar(top_states["Consignee State"], top_states[quantity_col])
+    ax.set_title("Top 5 States by Import Volume")
+    ax.set_xlabel("State")
+    ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
+    st.pyplot(fig)
+
+    # Top 5 Exporters by Import Volume
+    st.write("### Top 5 Exporters by Import Volume")
+    top_exporters = filtered_data.groupby("Exporter")[quantity_col].sum().sort(quantity_col, reverse=True).head(5)
+    fig, ax = plt.subplots()
+    ax.bar(top_exporters["Exporter"], top_exporters[quantity_col])
+    ax.set_title("Top 5 Exporters by Import Volume")
+    ax.set_xlabel("Exporter")
+    ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
+    st.pyplot(fig)
+
+    # ---- Download Button ---- #
+    st.download_button("📥 Download Filtered Data", filtered_data.write_csv(), "filtered_data.csv", "text/csv")
+
+# Save file as market_overview_dashboard.py
