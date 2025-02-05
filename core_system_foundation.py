@@ -98,17 +98,17 @@ if df is not None:
     
     # ==================== FILTER SYSTEM ====================
     st.sidebar.subheader("Filters")
-    years = ["All"] + df["Year"].unique().to_list()
-    states = ["All"] + df["Consignee State"].unique().to_list()
-    suppliers = ["All"] + df["Exporter"].unique().to_list()
-    consignees = ["All"] + df["Consignee"].unique().to_list()
-    months = ["All"] + df["Month"].unique().to_list()
+    years = df["Year"].unique().to_list()
+    states = df["Consignee State"].unique().to_list()
+    suppliers = df["Exporter"].unique().to_list()
+    consignees = df["Consignee"].unique().to_list()
+    months = df["Month"].unique().to_list()
     
-    selected_years = st.sidebar.multiselect("Select Year", years, default=["All"])
-    selected_states = st.sidebar.multiselect("Select Consignee State", states, default=["All"])
-    selected_suppliers = st.sidebar.multiselect("Select Exporter", suppliers, default=["All"])
-    selected_consignees = st.sidebar.multiselect("Select Consignee", consignees, default=["All"])
-    selected_months = st.sidebar.multiselect("Select Month", months, default=["All"])
+    selected_years = st.sidebar.multiselect("Select Year", ["All"] + years, default=["All"])
+    selected_states = st.sidebar.multiselect("Select Consignee State", ["All"] + states, default=["All"])
+    selected_suppliers = st.sidebar.multiselect("Select Exporter", ["All"] + suppliers, default=["All"])
+    selected_consignees = st.sidebar.multiselect("Select Consignee", ["All"] + consignees, default=["All"])
+    selected_months = st.sidebar.multiselect("Select Month", ["All"] + months, default=["All"])
     
     filtered_df = df
     if "All" not in selected_years:
