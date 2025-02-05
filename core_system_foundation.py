@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import polars as pl
 import time
 from io import StringIO
 
@@ -14,10 +14,12 @@ if "uploaded_file" not in st.session_state:
 if "session_start_time" not in st.session_state:
     st.session_state["session_start_time"] = time.time()
 
-# Auto logout after 30 min of inactivity
-if time.time() - st.session_state["session_start_time"] > 1800:
+# Auto logout after 30 min of inactivity with warning
+remaining_time = 1800 - (time.time() - st.session_state["session_start_time"])
+if remaining_time <= 0:
     st.session_state["authenticated"] = False
     st.experimental_rerun()
+st.sidebar.warning(f"⚠️ Auto logout in {int(remaining_time // 60)} min {int(remaining_time % 60)} sec")
 
 # ---- Login Page ---- #
 def login():
@@ -43,29 +45,49 @@ def logout():
 # ---- File Upload Page ---- #
 def file_upload():
     st.title("📂 Upload Your Import Data")
-    st.markdown("Ensure your file is in CSV format for optimal performance.")
-    uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"], help="Supported file format: .csv")
+    st.markdown("Only CSV files are supported.")
+    uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"], help="Upload your CSV file")
     if uploaded_file is not None:
-                else:
-            try:
-                st.session_state["uploaded_file"] = uploaded_file.getvalue()
-                st.success("File uploaded successfully! Processing data...")
-                st.button("Proceed to Dashboard", on_click=lambda: st.experimental_rerun())
-            except Exception as e:
-                st.error(f"Error processing file: {e}")
+        try:
+            st.session_state["uploaded_file"] = uploaded_file.getvalue()
+            st.success("File uploaded successfully! Processing data...")
+            st.button("Proceed to Dashboard", on_click=lambda: st.experimental_rerun())
+        except Exception as e:
+            st.error(f"Error processing file: {e}")
+
+# ---- Data Schema Validation ---- #
+def validate_schema(df):
+    required_columns = {"SR NO.": pl.Int64, "Job No.": pl.Int64, "Consignee": pl.Utf8, "Exporter": pl.Utf8, "Quanity (Kgs)": pl.Utf8,
+                        "Quanity (Tons)": pl.Utf8, "Month": pl.Utf8, "Year": pl.Int64, "Consignee State": pl.Utf8}
+    for col, dtype in required_columns.items():
+        if col not in df.columns:
+            st.error(f"Missing required column: {col}")
+            return False
+        if df[col].dtype != dtype:
+            st.error(f"Column {col} has incorrect data type. Expected {dtype}, found {df[col].dtype}")
+            return False
+    return True
 
 # ---- Data Processing Function ---- #
 @st.cache_data(max_entries=10)
 def process_data(file):
-    df = pd.read_csv(StringIO(file.decode("utf-8")))
-    df["Quanity (Kgs)"] = df["Quanity (Kgs)"].str.replace(" Kgs", "", regex=False).astype(float)
-    df["Quanity (Tons)"] = df["Quanity (Tons)"].str.replace(" tons", "", regex=False).astype(float)
+    df = pl.read_csv(StringIO(file.decode("utf-8")))
     
+    if not validate_schema(df):
+        return None
+    
+    # Convert 'Quanity (Kgs)' and 'Quanity (Tons)' to numeric
+    df = df.with_columns([
+        pl.col("Quanity (Kgs)").str.replace(" Kgs", "").cast(pl.Float64),
+        pl.col("Quanity (Tons)").str.replace(" tons", "").cast(pl.Float64)
+    ])
+    
+    # Convert Month to Numeric
     month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
                  "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-    df["Month"] = df["Month"].map(month_map)
+    df = df.with_columns(pl.col("Month").replace(month_map))
     
-    df.fillna("N/A", inplace=True)
+    df = df.fill_null("N/A")
     return df
 
 # ---- Dashboard Page ---- #
@@ -89,14 +111,18 @@ def dashboard():
         col3.metric("Unique Consignees", unique_consignees)
         
         st.subheader("🏆 Top 5 Consignees by Import Volume")
-        top_consignees = df.groupby("Consignee")["Quanity (Kgs)"].sum().nlargest(5)
+        top_consignees = df.groupby("Consignee")["Quanity (Kgs)"].sum().top_k(5)
         st.dataframe(top_consignees)
         
         st.subheader("🚢 Top 5 Exporters by Import Volume")
-        top_exporters = df.groupby("Exporter")["Quanity (Kgs)"].sum().nlargest(5)
+        top_exporters = df.groupby("Exporter")["Quanity (Kgs)"].sum().top_k(5)
         st.dataframe(top_exporters)
+
+        # Add Download Button
+        csv_data = df.write_csv()
+        st.download_button("📥 Download Processed Data", csv_data, "processed_data.csv", "text/csv")
     else:
-        st.warning("No file uploaded. Please upload a CSV file first.")
+        st.warning("No file uploaded or invalid schema. Please upload a valid CSV file.")
 
 # ---- Main Application Logic ---- #
 if not st.session_state["authenticated"]:
