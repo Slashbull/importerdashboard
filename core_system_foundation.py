@@ -12,17 +12,23 @@ USER_CREDENTIALS = {
     "admin": hash_password("importer@123")  # Change this password securely
 }
 
+def authenticate_user(username, password):
+    if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == hash_password(password):
+        st.session_state["authenticated"] = True
+        st.session_state["username"] = username
+        return True
+    return False
+
 def login():
-    st.sidebar.header("Login")
+    st.sidebar.header("🔐 Login to Access Dashboard")
     username = st.sidebar.text_input("Username")
     password = st.sidebar.text_input("Password", type="password")
     if st.sidebar.button("Login"):
-        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == hash_password(password):
-            st.session_state["authenticated"] = True
-            st.session_state["username"] = username
-            st.sidebar.success("Login Successful!")
+        if authenticate_user(username, password):
+            st.sidebar.success("✅ Login Successful!")
+            st.experimental_rerun()
         else:
-            st.sidebar.error("Invalid Credentials")
+            st.sidebar.error("❌ Invalid Credentials")
 
 def logout():
     st.session_state.clear()
@@ -39,7 +45,6 @@ if not st.session_state["authenticated"]:
 st.title("Importer Dashboard - Data Upload & Processing")
 
 uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
-gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
 
 def load_data(file):
     """Load CSV or Excel data into a Polars DataFrame with proper column renaming."""
@@ -56,17 +61,8 @@ def load_data(file):
     df = df.rename(column_mapping)
     return df
 
-def load_google_sheets(url):
-    """Load data from Google Sheets."""
-    sheet_id = url.split("/d/")[1].split("/")[0]
-    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-    df = pl.read_csv(sheet_url)
-    return df
-
 if uploaded_file:
     df = load_data(uploaded_file)
-elif gsheet_url:
-    df = load_google_sheets(gsheet_url)
 else:
     df = None
 
@@ -110,20 +106,31 @@ if df is not None:
     selected_consignees = st.sidebar.multiselect("Select Consignee", ["All"] + consignees, default=["All"])
     selected_months = st.sidebar.multiselect("Select Month", ["All"] + months, default=["All"])
     
-    filtered_df = df
-    if "All" not in selected_years:
-        filtered_df = filtered_df.filter(pl.col("Year").is_in(selected_years))
-    if "All" not in selected_states:
-        filtered_df = filtered_df.filter(pl.col("Consignee State").is_in(selected_states))
-    if "All" not in selected_suppliers:
-        filtered_df = filtered_df.filter(pl.col("Exporter").is_in(selected_suppliers))
-    if "All" not in selected_consignees:
-        filtered_df = filtered_df.filter(pl.col("Consignee").is_in(selected_consignees))
-    if "All" not in selected_months:
-        filtered_df = filtered_df.filter(pl.col("Month").is_in(selected_months))
+    @st.cache_data
+    def filter_data(df, selected_years, selected_states, selected_suppliers, selected_consignees, selected_months):
+        filtered_df = df.lazy()
+        if "All" not in selected_years:
+            filtered_df = filtered_df.filter(pl.col("Year").is_in(selected_years))
+        if "All" not in selected_states:
+            filtered_df = filtered_df.filter(pl.col("Consignee State").is_in(selected_states))
+        if "All" not in selected_suppliers:
+            filtered_df = filtered_df.filter(pl.col("Exporter").is_in(selected_suppliers))
+        if "All" not in selected_consignees:
+            filtered_df = filtered_df.filter(pl.col("Consignee").is_in(selected_consignees))
+        if "All" not in selected_months:
+            filtered_df = filtered_df.filter(pl.col("Month").is_in(selected_months))
+        return filtered_df.collect()
+    
+    filtered_df = filter_data(df, selected_years, selected_states, selected_suppliers, selected_consignees, selected_months)
     
     st.write("### Filtered Data Preview:")
     st.write(filtered_df.head(10))
+    
+    # ==================== UNIT SELECTION ====================
+    unit = st.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
+    display_column = "Quantity_Tons" if unit == "Tons" else "Quantity_Kgs"
+    st.write("### Displaying in:", unit)
+    st.dataframe(filtered_df[[display_column]])
     
     # Logout Button
     if st.sidebar.button("Logout"):
