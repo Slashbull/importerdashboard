@@ -1,88 +1,80 @@
 import streamlit as st
 import pandas as pd
-import hashlib
+import os
 
-# ==================== LOGIN SYSTEM ====================
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+# Import the Market Overview Dashboard\import market_overview_dashboard
 
-# Dummy user credentials (Can be expanded for multi-user authentication)
-USER_CREDENTIALS = {
-    "admin": hash_password("importer@123")  # Change this password securely
-}
+# ================== CONFIGURATION ==================
+st.set_page_config(page_title="Core System Foundation", layout="wide")
 
-def authenticate_user(username, password):
-    if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == hash_password(password):
-        st.session_state["authenticated"] = True
-        st.session_state["username"] = username
-        return True
-    return False
+# Secure logout
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
 
 def logout():
-    st.session_state.clear()
-    st.rerun()
+    st.session_state.authenticated = False
+    st.experimental_rerun()
 
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+# ================== LOGIN SYSTEM ==================
+def login():
+    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
+        st.session_state.authenticated = False
+        username = st.text_input("Username", type="text")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if username == "admin" and password == "password":
+                st.session_state.authenticated = True
+                st.experimental_rerun()
+            else:
+                st.error("Invalid username or password")
+    return st.session_state.authenticated
 
-if not st.session_state["authenticated"]:
-    st.sidebar.header("🔐 Login to Access Dashboard")
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login"):
-        if authenticate_user(username, password):
-            st.sidebar.success("✅ Login Successful!")
-            st.rerun()
-        else:
-            st.sidebar.error("❌ Invalid Credentials")
-    st.stop()
+# ================== FILE UPLOAD ==================
+@st.cache_data
+def process_data(file):
+    try:
+        df = pd.read_csv(file, encoding='utf-8')
+        required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", "Quantity (Kgs)", "Quantity (Tons)", "Month", "Year", "Consignee State"]
+        if not all(col in df.columns for col in required_columns):
+            raise ValueError("The uploaded CSV is missing required columns.")
+        
+        # Clean data and normalize
+        df['Quantity (Kgs)'] = df['Quantity (Kgs)'].str.replace("[^\d.]", "", regex=True).astype(float)
+        df['Quantity (Tons)'] = df['Quantity (Tons)'].str.replace("[^\d.]", "", regex=True).astype(float)
+        return df
+    except Exception as e:
+        st.error(f"Error processing the file: {e}")
+        return pd.DataFrame()
 
-# ==================== DATA UPLOAD SYSTEM ====================
-st.title("Importer Dashboard")
-if "data_uploaded" not in st.session_state:
-    st.session_state["data_uploaded"] = False
+# ================== MAIN APPLICATION ==================
+def main():
+    if not login():
+        return
 
-if not st.session_state["data_uploaded"]:
-    st.subheader("Upload Data to Proceed")
-    uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
-    gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
+    # File upload section
+    st.sidebar.title("📂 Upload Your Data")
+    uploaded_file = st.sidebar.file_uploader("Upload CSV File", type="csv")
 
-    @st.cache_data
-    def load_data(file):
-        """Load CSV or Excel data into a Pandas DataFrame with optimized error handling."""
-        try:
-            with st.spinner("📂 Loading Data... Please wait."):
-                if file.name.endswith(".csv"):
-                    df = pd.read_csv(file, low_memory=False)
-                else:
-                    df = pd.read_excel(file)
-                
-                column_mapping = {"Quanity": "Quantity", "Month ": "Month"}
-                df.rename(columns=column_mapping, inplace=True)
-                return df
-        except Exception as e:
-            st.error(f"❌ Error loading file: {e}")
-            return None
+    if uploaded_file is not None:
+        st.session_state.data = process_data(uploaded_file)
+        if not st.session_state.data.empty:
+            st.sidebar.success("File uploaded and processed successfully!")
 
-    if uploaded_file:
-        df = load_data(uploaded_file)
-        if df is not None:
-            if "Quantity" in df.columns:
-                df["Quantity_Tons"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0) / 1000
-            st.session_state["filtered_data"] = df.copy()
-            st.session_state["data_uploaded"] = True
-            st.rerun()
-    st.stop()
+    # Navigation
+    st.sidebar.title("📊 Navigation")
+    options = ["Market Overview"]
+    selected_option = st.sidebar.radio("Go to", options)
 
-# ==================== DASHBOARD SELECTION ====================
-st.sidebar.header("Select Dashboard")
-dashboard_choice = st.sidebar.radio("Choose Dashboard", ["Market Overview", "Competitor Insights"])
+    if st.sidebar.button("Logout"):
+        logout()
 
-if dashboard_choice == "Market Overview":
-    import market_overview_dashboard  # Loads Market Overview separately
-elif dashboard_choice == "Competitor Insights":
-    import competitor_insights_dashboard  # Loads Competitor Insights separately
+    if selected_option == "Market Overview":
+        market_overview_dashboard.show_dashboard()
 
-# Logout Button
-if st.sidebar.button("Logout"):
-    logout()
+# ================== ENHANCEMENTS ==================
+# Secure file handling
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        st.error("An unexpected error occurred. Please try again later.")
