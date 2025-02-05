@@ -68,72 +68,75 @@ if df is not None:
     st.write(df.head(10))
     
     # ==================== DATA CLEANING & PROCESSING ====================
-    # Check if required columns exist
-    if "Quantity" not in df.columns or "Month" not in df.columns:
-        st.error("The dataset is missing required columns (e.g., Quantity, Month). Please check the data.")
-    else:
+    if "Quantity" in df.columns:
         # Convert Quantity column to numeric and auto-generate Tons
         df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
         df["Quantity_Tons"] = df["Quantity"] / 1000
-        
-        # Convert Month column to numeric format
-        month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+    
+    # Convert Month column to numeric format
+    month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+    if "Month" in df.columns:
         df["Month_Num"] = df["Month"].map(month_map)
-        
-        # Display processed data
-        st.write("### Processed Data Preview:")
-        st.write(df.head(10))
-        
-        # ==================== FILTER SYSTEM ====================
-        st.sidebar.subheader("Filters")
-        
-        # Keep track of the previously selected filters
-        years = df["Year"].dropna().astype(str).unique().tolist()
-        selected_years = st.sidebar.multiselect("Select Year", ["All"] + years, default=["All"])
-        
-        states = df["Consignee State"].dropna().astype(str).unique().tolist()
-        selected_states = st.sidebar.multiselect("Select Consignee State", ["All"] + states, default=["All"])
-        
-        suppliers = df["Exporter"].dropna().astype(str).unique().tolist()
-        selected_suppliers = st.sidebar.multiselect("Select Exporter", ["All"] + suppliers, default=["All"])
-        
-        consignees = df["Consignee"].dropna().astype(str).unique().tolist()
-        selected_consignees = st.sidebar.multiselect("Select Consignee", ["All"] + consignees, default=["All"])
-        
-        if "Quantity" in df.columns:
-            min_quantity, max_quantity = int(df["Quantity"].min()), int(df["Quantity"].max())
-            selected_quantity_range = st.sidebar.slider("Quantity Range", min_quantity, max_quantity, (min_quantity, max_quantity))
-        
-        # Filter data based on selected filters
-        def filter_data(df, selected_years, selected_states, selected_suppliers, selected_consignees, selected_quantity_range):
-            filtered_df = df.copy()
-            if "All" not in selected_years:
-                filtered_df = filtered_df[filtered_df["Year"].astype(str).isin(selected_years)]
-            if "All" not in selected_states:
-                filtered_df = filtered_df[filtered_df["Consignee State"].astype(str).isin(selected_states)]
-            if "All" not in selected_suppliers:
-                filtered_df = filtered_df[filtered_df["Exporter"].astype(str).isin(selected_suppliers)]
-            if "All" not in selected_consignees:
-                filtered_df = filtered_df[filtered_df["Consignee"].astype(str).isin(selected_consignees)]
-            if "Quantity" in df.columns:
-                filtered_df = filtered_df[(filtered_df["Quantity"] >= selected_quantity_range[0]) & 
-                                          (filtered_df["Quantity"] <= selected_quantity_range[1])]
-            return filtered_df
-        
-        filtered_df = filter_data(df, selected_years, selected_states, selected_suppliers, selected_consignees, selected_quantity_range)
-        
-        st.write("### Filtered Data Preview:")
-        st.write(filtered_df.head(10) if not filtered_df.empty else "No data available with selected filters.")
-        
-        # ==================== UNIT SELECTION ====================
-        if "Quantity" in filtered_df.columns and "Quantity_Tons" in filtered_df.columns:
-            unit = st.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
-            display_column = "Quantity_Tons" if unit == "Tons" else "Quantity"
-            st.write("### Displaying in:", unit)
-            st.dataframe(filtered_df[[display_column]])
-        
-        # ==================== LOGOUT ====================
-        if st.sidebar.button("Logout"):
-            logout()
+    
+    # Display processed data
+    st.write("### Processed Data Preview:")
+    st.write(df.head(10))
+    
+    # ==================== FILTER SYSTEM ====================
+    st.sidebar.subheader("Filters")
+    years = df["Year"].dropna().astype(str).unique().tolist()
+    states = df["Consignee State"].dropna().astype(str).unique().tolist()
+    suppliers = df["Exporter"].dropna().astype(str).unique().tolist()
+    consignees = df["Consignee"].dropna().astype(str).unique().tolist()
+    months = df["Month"].dropna().astype(str).unique().tolist()
+    
+    selected_years = st.sidebar.multiselect("Select Year", ["All"] + years, default=["All"])
+    selected_states = st.sidebar.multiselect("Select Consignee State", ["All"] + states, default=["All"])
+    selected_suppliers = st.sidebar.multiselect("Select Exporter", ["All"] + suppliers, default=["All"])
+    selected_consignees = st.sidebar.multiselect("Select Consignee", ["All"] + consignees, default=["All"])
+    selected_months = st.sidebar.multiselect("Select Month", ["All"] + months, default=["All"])
+    
+    # Filter data based on selected filters
+    def filter_data(df, selected_years, selected_states, selected_suppliers, selected_consignees, selected_months):
+        filtered_df = df.copy()
+        if "All" not in selected_years:
+            filtered_df = filtered_df[filtered_df["Year"].astype(str).isin(selected_years)]
+        if "All" not in selected_states:
+            filtered_df = filtered_df[filtered_df["Consignee State"].astype(str).isin(selected_states)]
+        if "All" not in selected_suppliers:
+            filtered_df = filtered_df[filtered_df["Exporter"].astype(str).isin(selected_suppliers)]
+        if "All" not in selected_consignees:
+            filtered_df = filtered_df[filtered_df["Consignee"].astype(str).isin(selected_consignees)]
+        if "All" not in selected_months:
+            filtered_df = filtered_df[filtered_df["Month"].astype(str).isin(selected_months)]
+        return filtered_df
+    
+    filtered_df = filter_data(df, selected_years, selected_states, selected_suppliers, selected_consignees, selected_months)
+    
+    st.write("### Filtered Data Preview:")
+    st.write(filtered_df.head(10))
+    
+    # ==================== UNIT SELECTION ====================
+    if "Quantity" in filtered_df.columns and "Quantity_Tons" in filtered_df.columns:
+        unit = st.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
+        display_column = "Quantity_Tons" if unit == "Tons" else "Quantity"
+        st.write("### Displaying in:", unit)
+        st.dataframe(filtered_df[[display_column]])
+    
+    # ==================== EXPORT SYSTEM ====================
+    st.sidebar.subheader("Export Data")
+    export_format = st.sidebar.radio("Select Export Format", ["CSV", "Excel"])
+    
+    if st.sidebar.button("Download Filtered Data"):
+        if export_format == "CSV":
+            filtered_df.to_csv("filtered_data.csv", index=False)
+            st.sidebar.download_button(label="Download CSV", data=open("filtered_data.csv", "rb"), file_name="filtered_data.csv", mime="text/csv")
+        elif export_format == "Excel":
+            filtered_df.to_excel("filtered_data.xlsx", index=False)
+            st.sidebar.download_button(label="Download Excel", data=open("filtered_data.xlsx", "rb"), file_name="filtered_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    
+    # ==================== LOGOUT ====================
+    if st.sidebar.button("Logout"):
+        logout()
 else:
     st.error("No valid Google Sheets link provided. Please enter a valid Google Sheets URL.")
