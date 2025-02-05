@@ -2,12 +2,6 @@ import streamlit as st
 import pandas as pd
 import polars as pl
 import hashlib
-pip install streamlit
-pip install polars
-pip install pandas
-pip install rich
-pip install hashlib
-
 
 # ==================== LOGIN SYSTEM ====================
 def hash_password(password):
