@@ -35,7 +35,7 @@ def process_data(file):
         required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", "Quantity (Kgs)", "Quantity (Tons)", "Month", "Year", "Consignee State"]
         if not all(col in df.columns for col in required_columns):
             raise ValueError("The uploaded CSV is missing required columns.")
-        
+
         # Clean data and normalize
         df['Quantity (Kgs)'] = df['Quantity (Kgs)'].str.replace("[^\d.]", "", regex=True).astype(float)
         df['Quantity (Tons)'] = df['Quantity (Tons)'].str.replace("[^\d.]", "", regex=True).astype(float)
@@ -60,17 +60,19 @@ def main():
 
     # Navigation
     st.sidebar.title("📊 Navigation")
-    options = ["Market Overview"]
-    selected_option = st.sidebar.radio("Go to", options)
+    options = ["Data Preview", "Logout"]
+    selected_option = st.sidebar.radio("Choose an action", options)
 
-    if st.sidebar.button("Logout"):
+    if selected_option == "Logout":
         logout()
 
-    if selected_option == "Market Overview":
-        st.write("Market Overview Dashboard Placeholder")
+    elif selected_option == "Data Preview" and 'data' in st.session_state:
+        st.title("Data Preview")
+        st.dataframe(st.session_state.data.head(50))
+    else:
+        st.info("Upload a file to preview data.")
 
 # ================== ENHANCEMENTS ==================
-# Secure file handling
 if __name__ == "__main__":
     try:
         main()
