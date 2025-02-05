@@ -39,6 +39,7 @@ if not st.session_state["authenticated"]:
 st.title("Importer Dashboard - Data Upload & Processing")
 
 uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
+gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
 
 def load_data(file):
     """Load CSV or Excel data into a Polars DataFrame with proper column renaming."""
@@ -55,8 +56,21 @@ def load_data(file):
     df = df.rename(column_mapping)
     return df
 
+def load_google_sheets(url):
+    """Load data from Google Sheets."""
+    sheet_id = url.split("/d/")[1].split("/")[0]
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+    df = pl.read_csv(sheet_url)
+    return df
+
 if uploaded_file:
     df = load_data(uploaded_file)
+elif gsheet_url:
+    df = load_google_sheets(gsheet_url)
+else:
+    df = None
+
+if df is not None:
     st.write("### Raw Data Preview:")
     st.write(df.head(10))
     
@@ -84,16 +98,18 @@ if uploaded_file:
     
     # ==================== FILTER SYSTEM ====================
     st.sidebar.subheader("Filters")
-    selected_year = st.sidebar.selectbox("Select Year", df["Year"].unique().to_list())
-    selected_state = st.sidebar.selectbox("Select Consignee State", ["All"] + df["Consignee State"].unique().to_list())
-    selected_supplier = st.sidebar.selectbox("Select Exporter", ["All"] + df["Exporter"].unique().to_list())
+    selected_years = st.sidebar.multiselect("Select Year", df["Year"].unique().to_list(), default=df["Year"].unique().to_list())
+    selected_states = st.sidebar.multiselect("Select Consignee State", df["Consignee State"].unique().to_list(), default=df["Consignee State"].unique().to_list())
+    selected_suppliers = st.sidebar.multiselect("Select Exporter", df["Exporter"].unique().to_list(), default=df["Exporter"].unique().to_list())
+    selected_consignees = st.sidebar.multiselect("Select Consignee", df["Consignee"].unique().to_list(), default=df["Consignee"].unique().to_list())
+    selected_months = st.sidebar.multiselect("Select Month", df["Month"].unique().to_list(), default=df["Month"].unique().to_list())
     
     # Apply filters
-    filtered_df = df.filter(pl.col("Year") == selected_year)
-    if selected_state != "All":
-        filtered_df = filtered_df.filter(pl.col("Consignee State") == selected_state)
-    if selected_supplier != "All":
-        filtered_df = filtered_df.filter(pl.col("Exporter") == selected_supplier)
+    filtered_df = df.filter(pl.col("Year").is_in(selected_years))
+    filtered_df = filtered_df.filter(pl.col("Consignee State").is_in(selected_states))
+    filtered_df = filtered_df.filter(pl.col("Exporter").is_in(selected_suppliers))
+    filtered_df = filtered_df.filter(pl.col("Consignee").is_in(selected_consignees))
+    filtered_df = filtered_df.filter(pl.col("Month").is_in(selected_months))
     
     st.write("### Filtered Data Preview:")
     st.write(filtered_df.head(10))
