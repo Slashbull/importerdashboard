@@ -32,7 +32,7 @@ if not st.session_state["authenticated"]:
     if st.sidebar.button("Login"):
         if authenticate_user(username, password):
             st.sidebar.success("✅ Login Successful!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.sidebar.error("❌ Invalid Credentials")
     st.stop()
