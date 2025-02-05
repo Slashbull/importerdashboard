@@ -41,11 +41,18 @@ st.title("Importer Dashboard - Data Upload & Processing")
 uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
 
 def load_data(file):
-    """Load CSV or Excel data into a Polars DataFrame."""
+    """Load CSV or Excel data into a Polars DataFrame with proper column renaming."""
     if file.name.endswith(".csv"):
         df = pl.read_csv(file)
     else:
         df = pl.read_excel(file)
+    
+    # Standardize column names to remove typos and spaces
+    column_mapping = {
+        "Quanity": "Quantity",
+        "Month ": "Month"
+    }
+    df = df.rename(column_mapping)
     return df
 
 if uploaded_file:
@@ -56,18 +63,20 @@ if uploaded_file:
     # ==================== DATA CLEANING & PROCESSING ====================
     
     # Convert Quantity column to numeric (Kgs & Tons Toggle)
-    df = df.with_columns(
-        pl.col("Quanity").str.replace_all("[^0-9]", "").cast(pl.Float64).alias("Quantity_Kgs")
-    )
-    df = df.with_columns(
-        (pl.col("Quantity_Kgs") / 1000).alias("Quantity_Tons")
-    )
+    if "Quantity" in df.columns:
+        df = df.with_columns(
+            pl.col("Quantity").str.replace_all("[^0-9]", "").cast(pl.Float64).alias("Quantity_Kgs")
+        )
+        df = df.with_columns(
+            (pl.col("Quantity_Kgs") / 1000).alias("Quantity_Tons")
+        )
     
     # Convert Month column to numeric format
     month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-    df = df.with_columns(
-        pl.col("Month").replace(month_map).alias("Month_Num")
-    )
+    if "Month" in df.columns:
+        df = df.with_columns(
+            pl.col("Month").replace(month_map).alias("Month_Num")
+        )
     
     # Display cleaned data
     st.write("### Processed Data Preview:")
@@ -88,6 +97,17 @@ if uploaded_file:
     
     st.write("### Filtered Data Preview:")
     st.write(filtered_df.head(10))
+    
+    # Export Data Option
+    st.sidebar.subheader("Export Data")
+    export_format = st.sidebar.radio("Select Export Format", ["CSV", "Excel"])
+    if st.sidebar.button("Download Data"):
+        if export_format == "CSV":
+            filtered_df.write_csv("filtered_data.csv")
+            st.sidebar.download_button(label="Download CSV", data=open("filtered_data.csv", "rb"), file_name="filtered_data.csv", mime="text/csv")
+        else:
+            filtered_df.write_excel("filtered_data.xlsx")
+            st.sidebar.download_button(label="Download Excel", data=open("filtered_data.xlsx", "rb"), file_name="filtered_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     
     # Logout Button
     if st.sidebar.button("Logout"):
