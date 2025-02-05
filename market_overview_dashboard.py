@@ -17,15 +17,20 @@ def market_dashboard(uploaded_data):
         df = pl.read_csv(StringIO(data.decode("utf-8")))
         df = df.with_columns([
             pl.col("Quanity (Kgs)").str.replace(" Kgs", "").cast(pl.Float64),
-            pl.col("Quanity (Tons)").str.replace(" tons", "").cast(pl.Float64),
-            pl.col("Month").alias("Month_Num")
+            pl.col("Quanity (Tons)").str.replace(" tons", "").cast(pl.Float64)
         ])
         month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
                      "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-        df = df.with_columns(pl.col("Month").map_dict(month_map))
+        if "Month" in df.columns:
+            df = df.with_columns(pl.col("Month").replace(month_map))
+        else:
+            st.error("🚨 Error: 'Month' column is missing in uploaded data.")
+            return None
         return df
 
     df = load_data(uploaded_data)
+    if df is None:
+        return
 
     # ---- Filters ---- #
     st.sidebar.header("Filters")
@@ -66,9 +71,9 @@ def market_dashboard(uploaded_data):
 
     # Monthly Import Trends
     st.write("### Monthly Import Trends")
-    monthly_trends = filtered_data.groupby("Month_Num")[quantity_col].sum().sort("Month_Num")
+    monthly_trends = filtered_data.groupby("Month")[quantity_col].sum().sort("Month")
     fig, ax = plt.subplots()
-    ax.plot(monthly_trends["Month_Num"], monthly_trends[quantity_col], marker="o")
+    ax.plot(monthly_trends["Month"], monthly_trends[quantity_col], marker="o")
     ax.set_title("Monthly Import Trends")
     ax.set_xlabel("Month")
     ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
