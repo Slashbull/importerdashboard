@@ -15,6 +15,10 @@ def market_dashboard(uploaded_data):
     @st.cache_data(max_entries=10)
     def load_data(data):
         df = pl.read_csv(StringIO(data.decode("utf-8")))
+        df = df.with_columns([
+            pl.when(pl.col("Quanity (Kgs)").str.contains(" Kgs")).then(pl.col("Quanity (Kgs)").str.replace(" Kgs", "")).otherwise(pl.col("Quanity (Kgs)")).cast(pl.Float64),
+            pl.when(pl.col("Quanity (Tons)").str.contains(" tons")).then(pl.col("Quanity (Tons)").str.replace(" tons", "")).otherwise(pl.col("Quanity (Tons)")).cast(pl.Float64)
+        ])
         
         # Convert Quantity columns to numeric
         if "Quanity (Kgs)" in df.columns:
