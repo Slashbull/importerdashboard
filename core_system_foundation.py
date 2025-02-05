@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-import hashlib
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import hashlib
 
 # ==================== LOGIN SYSTEM ====================
 def hash_password(password):
@@ -41,58 +41,57 @@ if not st.session_state["authenticated"]:
     login()
     st.stop()
 
-# ==================== GOOGLE SHEETS INTEGRATION ====================
+# ==================== GOOGLE SHEETS DATA HANDLING ====================
 st.title("Importer Dashboard - Google Sheets Data Processing")
 
-gsheet_url = st.text_input("Enter Google Sheets Link")
-
-# Google Sheets API Credentials
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-client = gspread.authorize(creds)
+gsheet_url = st.text_input("Enter Google Sheets Link (Editor Access Required)")
 
 def load_google_sheets(url):
-    """Load data from Google Sheets and store in 'Processed Data' sheet."""
-    sheet_id = url.split("/d/")[1].split("/")[0]
-    spreadsheet = client.open_by_key(sheet_id)
-    raw_data = pd.DataFrame(spreadsheet.sheet1.get_all_records())
-    
-    # Standardize column names
-    column_mapping = {
-        "Quanity": "Quantity",
-        "Month ": "Month"
-    }
-    raw_data.rename(columns=column_mapping, inplace=True)
-    
-    # Process Data
-    if "Quantity" in raw_data.columns:
-        raw_data["Quantity"] = raw_data["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
-        raw_data["Quantity_Tons"] = raw_data["Quantity"] / 1000
-    
-    month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-    if "Month" in raw_data.columns:
-        raw_data["Month_Num"] = raw_data["Month"].map(month_map)
-    
-    # Store processed data in a new sheet
+    """Load data from Google Sheets into a Pandas DataFrame."""
     try:
-        processed_sheet = spreadsheet.worksheet("Processed Data")
-        spreadsheet.del_worksheet(processed_sheet)
-    except:
-        pass  # Sheet doesn't exist, continue
-    
-    processed_sheet = spreadsheet.add_worksheet(title="Processed Data", rows=str(len(raw_data)+1), cols=str(len(raw_data.columns)))
-    processed_sheet.update([raw_data.columns.values.tolist()] + raw_data.values.tolist())
-    
-    return raw_data
+        sheet_id = url.split("/d/")[1].split("/")[0]
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+        df = pd.read_csv(sheet_url)
+        return df
+    except Exception as e:
+        st.error("Error loading Google Sheet. Check the link and permissions.")
+        return None
+
+def write_to_google_sheets(df, url):
+    """Write processed data to the 'Processed Data' sheet in Google Sheets."""
+    try:
+        sheet_id = url.split("/d/")[1].split("/")[0]
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(sheet_id)
+        worksheet = sheet.worksheet("Processed Data")
+        worksheet.clear()
+        worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+        st.success("✅ Processed data successfully written to Google Sheets.")
+    except Exception as e:
+        st.error("Error writing to Google Sheets. Ensure correct access and credentials.")
 
 if gsheet_url:
     df = load_google_sheets(gsheet_url)
-else:
-    df = None
-
-if df is not None:
-    st.write("### Processed Data Stored in Google Sheets")
-    st.write(df.head(10))
+    if df is not None:
+        st.write("### Raw Data Preview:")
+        st.write(df.head(10))
+        
+        # ==================== DATA PROCESSING ====================
+        if "Quantity" in df.columns:
+            df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
+            df["Quantity_Tons"] = df["Quantity"] / 1000
+        
+        month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+        if "Month" in df.columns:
+            df["Month_Num"] = df["Month"].map(month_map)
+        
+        st.write("### Processed Data Preview:")
+        st.write(df.head(10))
+        
+        # Write processed data to Google Sheets
+        write_to_google_sheets(df, gsheet_url)
     
     # Logout Button
     if st.sidebar.button("Logout"):
