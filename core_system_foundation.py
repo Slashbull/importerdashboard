@@ -18,16 +18,6 @@ def authenticate_user(username, password):
         return True
     return False
 
-def login():
-    st.sidebar.header("🔐 Login to Access Dashboard")
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login"):
-        if authenticate_user(username, password):
-            st.sidebar.success("✅ Login Successful!")
-        else:
-            st.sidebar.error("❌ Invalid Credentials")
-
 def logout():
     st.session_state.clear()
     st.experimental_rerun()
@@ -36,16 +26,24 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    login()
+    st.sidebar.header("🔐 Login to Access Dashboard")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Login"):
+        if authenticate_user(username, password):
+            st.sidebar.success("✅ Login Successful!")
+            st.experimental_rerun()
+        else:
+            st.sidebar.error("❌ Invalid Credentials")
     st.stop()
 
-# ==================== UI LAYOUT & NAVIGATION ====================
+# ==================== DATA UPLOAD SYSTEM ====================
 st.title("Importer Dashboard")
-tabs = st.tabs(["📂 Data Upload", "📊 Market Overview"])
+if "data_uploaded" not in st.session_state:
+    st.session_state["data_uploaded"] = False
 
-with tabs[0]:
-    # ==================== DATA UPLOAD SYSTEM ====================
-    st.subheader("Upload & Process Data")
+if not st.session_state["data_uploaded"]:
+    st.subheader("Upload Data to Proceed")
     uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
     gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
 
@@ -61,71 +59,52 @@ with tabs[0]:
                 
                 column_mapping = {"Quanity": "Quantity", "Month ": "Month"}
                 df.rename(columns=column_mapping, inplace=True)
-                
                 return df
         except Exception as e:
             st.error(f"❌ Error loading file: {e}")
             return None
 
-    @st.cache_data
-    def load_google_sheets(url):
-        """Load data from Google Sheets with better error handling."""
-        try:
-            with st.spinner("📂 Fetching Data from Google Sheets... Please wait."):
-                sheet_id = url.split("/d/")[1].split("/")[0]
-                sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-                df = pd.read_csv(sheet_url)
-            return df
-        except Exception as e:
-            st.error(f"❌ Failed to load Google Sheets data: {e}")
-            return None
-
     if uploaded_file:
         df = load_data(uploaded_file)
-    elif gsheet_url:
-        df = load_google_sheets(gsheet_url)
+        if df is not None:
+            if "Quantity" in df.columns:
+                df["Quantity_Tons"] = df["Quantity"] / 1000
+            st.session_state["filtered_data"] = df.copy()
+            st.session_state["data_uploaded"] = True
+            st.experimental_rerun()
+    st.stop()
+
+# ==================== DASHBOARD SELECTION ====================
+st.sidebar.header("Select Dashboard")
+dashboard_choice = st.sidebar.radio("Choose Dashboard", ["Market Overview", "Competitor Insights"])
+
+# ==================== FILTER SYSTEM ====================
+st.sidebar.subheader("Filters")
+unit_toggle = st.sidebar.radio("Select Unit", ["Kgs", "Tons"], horizontal=True)
+
+if "filtered_data" in st.session_state:
+    df = st.session_state["filtered_data"].copy()
+    if unit_toggle == "Tons":
+        df["Quantity_Display"] = df["Quantity_Tons"]
     else:
-        df = None
-
-    if df is not None:
-        st.write("### Raw Data Preview:")
-        st.write(df.head(10))
-        
-        # ==================== DATA CLEANING & PROCESSING ====================
-        if "Quantity" in df.columns:
-            df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0)
-            df["Quantity_Tons"] = df["Quantity"] / 1000
-        
-        month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-        if "Month" in df.columns:
-            df["Month_Num"] = df["Month"].map(month_map)
-        
-        st.write("### Processed Data Preview:")
-        st.write(df.head(10))
-        
-        # Store filtered data in session state
-        st.session_state["filtered_data"] = df.copy()
-
-with tabs[1]:
+        df["Quantity_Display"] = df["Quantity"]
+    
     # ==================== MARKET OVERVIEW SCREEN ====================
-    st.subheader("Market Overview")
-    if "filtered_data" in st.session_state:
-        df = st.session_state["filtered_data"].copy()
+    if dashboard_choice == "Market Overview":
+        st.subheader("Market Overview")
         if "Quantity" in df.columns:
             st.write("### Data Summary")
             col1, col2, col3 = st.columns(3)
-            col1.metric("Total Imports (Kgs)", f"{df['Quantity'].sum():,.0f}")
-            col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity"].sum().idxmax())
-            col3.metric("Top Exporter", df.groupby("Exporter")["Quantity"].sum().idxmax())
+            col1.metric("Total Imports", f"{df['Quantity_Display'].sum():,.0f} {unit_toggle}")
+            col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity_Display"].sum().idxmax())
+            col3.metric("Top Exporter", df.groupby("Exporter")["Quantity_Display"].sum().idxmax())
             
             st.write("### Monthly Import Trends")
-            monthly_trends = df.groupby("Month")["Quantity"].sum().reset_index()
-            st.line_chart(monthly_trends, x="Month", y="Quantity")
+            monthly_trends = df.groupby("Month")["Quantity_Display"].sum().reset_index()
+            st.line_chart(monthly_trends, x="Month", y="Quantity_Display")
         else:
             st.error("Quantity column missing in the dataset.")
-    else:
-        st.error("No data available. Please upload a file in the Data Upload tab.")
-
+    
 # Logout Button
 if st.sidebar.button("Logout"):
     logout()
