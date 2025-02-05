@@ -1,103 +1,78 @@
 import streamlit as st
 import pandas as pd
 import gspread
-from gspread_dataframe import set_with_dataframe
-import hashlib
+from google.oauth2 import service_account
 
-# ==================== LOGIN SYSTEM ====================
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+# ==================== GOOGLE AUTH & SHEETS ACCESS ====================
 
-# Dummy user credentials (Can be expanded for multi-user authentication)
-USER_CREDENTIALS = {
-    "admin": hash_password("importer@123")  # Change this password securely
-}
+# Load Google Service Account Credentials
+@st.cache_resource
+def get_gspread_client():
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+    return gspread.authorize(credentials)
 
-def authenticate_user(username, password):
-    if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == hash_password(password):
-        st.session_state["authenticated"] = True
-        st.session_state["username"] = username
-        return True
-    return False
+gc = get_gspread_client()
 
-def login():
-    st.sidebar.header("🔐 Login to Access Dashboard")
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login"):
-        if authenticate_user(username, password):
-            st.sidebar.success("✅ Login Successful!")
-        else:
-            st.sidebar.error("❌ Invalid Credentials")
-
-def logout():
-    st.session_state.clear()
-    st.experimental_rerun()
-
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-if not st.session_state["authenticated"]:
-    login()
-    st.stop()
-
-# ==================== GOOGLE SHEETS DATA HANDLING ====================
-st.title("Importer Dashboard - Google Sheets Data Processing")
-
-gsheet_url = st.text_input("Enter Google Sheets Link (Editor Access Required)")
-
-def load_google_sheets(url):
-    """Load data from Google Sheets into a Pandas DataFrame using direct access."""
+# Function to open or create Google Sheet
+def get_or_create_sheet(sheet_url, sheet_name="Processed Data"):
     try:
-        sheet_id = url.split("/d/")[1].split("/")[0]
-        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-        df = pd.read_csv(sheet_url)
-        return df
+        sheet_id = sheet_url.split("/d/")[1].split("/")[0]
+        sh = gc.open_by_key(sheet_id)
+        try:
+            worksheet = sh.worksheet(sheet_name)
+        except:
+            worksheet = sh.add_worksheet(title=sheet_name, rows="1000", cols="20")
+        return worksheet
     except Exception as e:
-        st.error("❌ Error loading Google Sheet. Check the link and permissions.")
+        st.error(f"Error accessing Google Sheets: {e}")
         return None
 
-def write_to_google_sheets(df, url):
-    """Write processed data to 'Processed Data' sheet directly without API key."""
-    try:
-        sheet_id = url.split("/d/")[1].split("/")[0]
-        gc = gspread.oauth()  # Authenticate using direct Google OAuth (no JSON required)
-        sheet = gc.open_by_key(sheet_id)
+# ==================== STREAMLIT UI ====================
+st.title("Importer Dashboard - Google Sheets Integration")
 
-        # Check if "Processed Data" sheet exists, if not create it
-        try:
-            worksheet = sheet.worksheet("Processed Data")
-        except gspread.exceptions.WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title="Processed Data", rows="1000", cols="20")
-
-        worksheet.clear()
-        set_with_dataframe(worksheet, df)
-        st.success("✅ Data successfully written to Google Sheets!")
-    except Exception as e:
-        st.error("❌ Error writing to Google Sheets. Ensure correct access and permissions.")
-
-# ==================== PROCESSING DATA ====================
+gsheet_url = st.text_input("Enter Google Sheets Link")
 if gsheet_url:
-    df = load_google_sheets(gsheet_url)
-    if df is not None:
-        st.write("### Raw Data Preview:")
-        st.write(df.head(10))
+    worksheet = get_or_create_sheet(gsheet_url)
+else:
+    worksheet = None
 
-        # Convert Quantity column to numeric and auto-generate Tons
-        if "Quantity" in df.columns:
-            df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
-            df["Quantity_Tons"] = df["Quantity"] / 1000
+# Load data from Google Sheets
+def load_google_sheets(worksheet):
+    try:
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None
 
-        month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-        if "Month" in df.columns:
-            df["Month_Num"] = df["Month"].map(month_map)
+df = load_google_sheets(worksheet) if worksheet else None
 
-        st.write("### Processed Data Preview:")
-        st.write(df.head(10))
+# Display data preview
+if df is not None and not df.empty:
+    st.write("### Raw Data Preview:")
+    st.write(df.head(10))
 
-        # Write processed data to Google Sheets
-        write_to_google_sheets(df, gsheet_url)
+    # ==================== DATA PROCESSING ====================
+    if "Quantity" in df.columns:
+        df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
+        df["Quantity_Tons"] = df["Quantity"] / 1000
 
-    # Logout Button
-    if st.sidebar.button("Logout"):
-        logout()
+    month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+    if "Month" in df.columns:
+        df["Month_Num"] = df["Month"].map(month_map)
+
+    st.write("### Processed Data Preview:")
+    st.write(df.head(10))
+
+    # ==================== WRITE BACK TO GOOGLE SHEETS ====================
+    if st.button("Save Processed Data to Google Sheets"):
+        try:
+            worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+            st.success("✅ Data successfully saved to Google Sheets!")
+        except Exception as e:
+            st.error(f"❌ Error writing to Google Sheets: {e}")
+else:
+    st.warning("No data found. Please enter a valid Google Sheets link.")
