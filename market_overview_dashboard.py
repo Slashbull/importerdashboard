@@ -1,4 +1,3 @@
-
 import streamlit as st
 import polars as pl
 import matplotlib.pyplot as plt
@@ -16,10 +15,14 @@ def market_dashboard(uploaded_data):
     @st.cache_data(max_entries=10)
     def load_data(data):
         df = pl.read_csv(StringIO(data.decode("utf-8")))
-        df = df.with_columns([
-            pl.when(pl.col("Quanity (Kgs)").str.contains(" Kgs")).then(pl.col("Quanity (Kgs)").str.replace(" Kgs", "")).otherwise(pl.col("Quanity (Kgs)")).cast(pl.Float64),
-            pl.when(pl.col("Quanity (Tons)").str.contains(" tons")).then(pl.col("Quanity (Tons)").str.replace(" tons", "")).otherwise(pl.col("Quanity (Tons)")).cast(pl.Float64)
-        ])
+        
+        # Convert Quantity columns to numeric
+        if "Quanity (Kgs)" in df.columns:
+            df = df.with_columns(pl.col("Quanity (Kgs)").str.replace(" Kgs", "").cast(pl.Float64))
+        if "Quanity (Tons)" in df.columns:
+            df = df.with_columns(pl.col("Quanity (Tons)").str.replace(" tons", "").cast(pl.Float64))
+        
+        # Convert Month to Numeric
         month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
                      "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
         if "Month" in df.columns:
@@ -27,6 +30,7 @@ def market_dashboard(uploaded_data):
         else:
             st.error("🚨 Error: 'Month' column is missing in uploaded data.")
             return None
+        
         return df
 
     df = load_data(uploaded_data)
@@ -72,15 +76,19 @@ def market_dashboard(uploaded_data):
 
     # Monthly Import Trends
     st.write("### Monthly Import Trends")
-    monthly_trends = filtered_data.groupby("Month").agg(pl.col(quantity_col).sum()).sort("Month")
-    fig, ax = plt.subplots()
-    ax.plot(monthly_trends["Month"], monthly_trends[quantity_col], marker="o")
-    ax.set_title("Monthly Import Trends")
-    ax.set_xlabel("Month")
-    ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
-    ax.grid(True)
-    st.pyplot(fig)
-
+    if "Month" in filtered_data.columns:
+        monthly_trends = filtered_data.groupby("Month").agg(pl.col(quantity_col).sum()).sort("Month")
+        if not monthly_trends.is_empty():
+            fig, ax = plt.subplots()
+            ax.plot(monthly_trends["Month"], monthly_trends[quantity_col], marker="o")
+            ax.set_title("Monthly Import Trends")
+            ax.set_xlabel("Month")
+            ax.set_ylabel(f"Total Quantity ({quantity_toggle})")
+            ax.grid(True)
+            st.pyplot(fig)
+        else:
+            st.warning("No data available for selected filters.")
+    
     # Top 5 States by Import Volume
     st.write("### Top 5 States by Import Volume")
     top_states = filtered_data.groupby("Consignee State")[quantity_col].sum().sort(quantity_col, reverse=True).head(5)
