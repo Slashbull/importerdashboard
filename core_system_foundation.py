@@ -35,12 +35,15 @@ def login():
     st.title("🔒 Secure Login")
     st.subheader("Welcome to the Importer Dashboard")
     st.markdown("Please enter your credentials to access the system.")
-    username = st.text_input("Username", placeholder="Enter your username")
-    password = st.text_input("Password", type="password", placeholder="Enter your password")
+    
+    username = st.text_input("Username", placeholder="Enter your username", key="login_username")
+    password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
+    
     if st.button("Login", use_container_width=True):
         if username in USERS and USERS[username] == password:
             st.session_state["authenticated"] = True
             st.session_state["session_start_time"] = time.time()
+            st.session_state["current_screen"] = "Market Overview"  # Set default screen after login
             st.experimental_rerun()
         else:
             st.error("Invalid Username or Password")
