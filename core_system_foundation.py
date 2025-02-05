@@ -45,6 +45,7 @@ st.title("Importer Dashboard - Data Upload & Processing")
 uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
 gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
 
+# Function to load CSV/Excel file
 def load_data(file):
     """Load CSV or Excel data into a Pandas DataFrame with proper column renaming."""
     if file.name.endswith(".csv"):
@@ -60,13 +61,19 @@ def load_data(file):
     df.rename(columns=column_mapping, inplace=True)
     return df
 
+# Function to load Google Sheets Data
 def load_google_sheets(url):
     """Load data from Google Sheets."""
-    sheet_id = url.split("/d/")[1].split("/")[0]
-    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-    df = pd.read_csv(sheet_url)  # Read the Google Sheets data
-    return df
+    try:
+        sheet_id = url.split("/d/")[1].split("/")[0]
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+        df = pd.read_csv(sheet_url)  # Read the Google Sheets data
+        return df
+    except Exception as e:
+        st.error(f"Error loading data from Google Sheets: {e}")
+        return None
 
+# Load data based on user input (File or Google Sheets URL)
 if uploaded_file:
     df = load_data(uploaded_file)
 elif gsheet_url:
@@ -74,14 +81,14 @@ elif gsheet_url:
 else:
     df = None
 
+# Display raw data if available
 if df is not None:
     st.write("### Raw Data Preview:")
     st.write(df.head(10))
     
     # ==================== DATA CLEANING & PROCESSING ====================
-    
-    # Convert Quantity column to numeric and auto-generate Tons
     if "Quantity" in df.columns:
+        # Convert Quantity column to numeric and auto-generate Tons
         df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
         df["Quantity_Tons"] = df["Quantity"] / 1000
     
@@ -90,7 +97,7 @@ if df is not None:
     if "Month" in df.columns:
         df["Month_Num"] = df["Month"].map(month_map)
     
-    # Display cleaned data
+    # Display processed data
     st.write("### Processed Data Preview:")
     st.write(df.head(10))
     
@@ -108,6 +115,7 @@ if df is not None:
     selected_consignees = st.sidebar.multiselect("Select Consignee", ["All"] + consignees, default=["All"])
     selected_months = st.sidebar.multiselect("Select Month", ["All"] + months, default=["All"])
     
+    # Filter data based on selected filters
     def filter_data(df, selected_years, selected_states, selected_suppliers, selected_consignees, selected_months):
         filtered_df = df.copy()
         if "All" not in selected_years:
@@ -134,6 +142,20 @@ if df is not None:
         st.write("### Displaying in:", unit)
         st.dataframe(filtered_df[[display_column]])
     
-    # Logout Button
+    # ==================== EXPORT SYSTEM ====================
+    st.sidebar.subheader("Export Data")
+    export_format = st.sidebar.radio("Select Export Format", ["CSV", "Excel"])
+    
+    if st.sidebar.button("Download Filtered Data"):
+        if export_format == "CSV":
+            filtered_df.to_csv("filtered_data.csv", index=False)
+            st.sidebar.download_button(label="Download CSV", data=open("filtered_data.csv", "rb"), file_name="filtered_data.csv", mime="text/csv")
+        elif export_format == "Excel":
+            filtered_df.to_excel("filtered_data.xlsx", index=False)
+            st.sidebar.download_button(label="Download Excel", data=open("filtered_data.xlsx", "rb"), file_name="filtered_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    
+    # ==================== LOGOUT ====================
     if st.sidebar.button("Logout"):
         logout()
+else:
+    st.error("No data available. Please upload a file or provide a valid Google Sheets link.")
