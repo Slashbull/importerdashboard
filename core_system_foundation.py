@@ -1,80 +1,70 @@
 import streamlit as st
 import pandas as pd
-import os
+import hashlib
+import polars as pl
+from io import StringIO
 
-# ================== CONFIGURATION ==================
-st.set_page_config(page_title="Core System Foundation", layout="wide")
+# ---- Secure User Authentication ---- #
+USERS = {"admin": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd61b96f965"}  # Password: "password"
 
-# Secure logout
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
+def hash_password(password):
+    return hashlib.sha1(password.encode()).hexdigest()
 
-def logout():
-    st.session_state.authenticated = False
-    st.experimental_rerun()
+# ---- Session State Management ---- #
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "uploaded_file" not in st.session_state:
+    st.session_state["uploaded_file"] = None
 
-# ================== LOGIN SYSTEM ==================
+# ---- Login Page ---- #
 def login():
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.session_state.authenticated = False
-        username = st.text_input("Username", type="text")
-        password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if username == "admin" and password == "password":
-                st.session_state.authenticated = True
-                st.experimental_rerun()
-            else:
-                st.error("Invalid username or password")
-    return st.session_state.authenticated
+    st.title("🔒 Secure Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username in USERS and USERS[username] == hash_password(password):
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Invalid Username or Password")
 
-# ================== FILE UPLOAD ==================
-@st.cache_data
-def process_data(file):
-    try:
-        df = pd.read_csv(file, encoding='utf-8')
-        required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", "Quantity (Kgs)", "Quantity (Tons)", "Month", "Year", "Consignee State"]
-        if not all(col in df.columns for col in required_columns):
-            raise ValueError("The uploaded CSV is missing required columns.")
+# ---- Logout Function ---- #
+def logout():
+    st.session_state["authenticated"] = False
+    st.session_state["uploaded_file"] = None
+    st.rerun()
 
-        # Clean data and normalize
-        df['Quantity (Kgs)'] = df['Quantity (Kgs)'].str.replace("[^\d.]", "", regex=True).astype(float)
-        df['Quantity (Tons)'] = df['Quantity (Tons)'].str.replace("[^\d.]", "", regex=True).astype(float)
-        return df
-    except Exception as e:
-        st.error(f"Error processing the file: {e}")
-        return pd.DataFrame()
-
-# ================== MAIN APPLICATION ==================
-def main():
-    if not login():
-        return
-
-    # File upload section
-    st.sidebar.title("📂 Upload Your Data")
-    uploaded_file = st.sidebar.file_uploader("Upload CSV File", type="csv")
-
+# ---- File Upload Page ---- #
+def file_upload():
+    st.title("📂 Upload CSV File")
+    uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
     if uploaded_file is not None:
-        st.session_state.data = process_data(uploaded_file)
-        if not st.session_state.data.empty:
-            st.sidebar.success("File uploaded and processed successfully!")
+        try:
+            # Read and cache the file
+            file_bytes = uploaded_file.getvalue()
+            st.session_state["uploaded_file"] = file_bytes
+            st.success("File uploaded successfully!")
+            st.button("Proceed to Dashboard", on_click=lambda: st.rerun())
+        except Exception as e:
+            st.error(f"Error processing file: {e}")
 
-    # Navigation
-    st.sidebar.title("📊 Navigation")
-    options = ["Data Preview", "Logout"]
-    selected_option = st.sidebar.radio("Choose an action", options)
-
-    if selected_option == "Logout":
-        logout()
-
-    elif selected_option == "Data Preview" and 'data' in st.session_state:
-        st.title("Data Preview")
-        st.dataframe(st.session_state.data.head(50))
+# ---- Dashboard Page ---- #
+def dashboard():
+    st.title("📊 Importer Decision-Making Dashboard")
+    st.sidebar.button("Logout", on_click=logout)
+    
+    # Load cached file if available
+    if st.session_state["uploaded_file"]:
+        df = pl.read_csv(StringIO(st.session_state["uploaded_file"].decode("utf-8")))
+        st.write("### Preview of Uploaded Data")
+        st.dataframe(df.head())
     else:
-        st.info("Upload a file to preview data.")
+        st.warning("No file uploaded. Please upload a CSV file first.")
 
-# ================== ENHANCEMENTS ==================
-if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        st.error("An unexpected error occurred. Please try again later.")
+# ---- Main Application Logic ---- #
+if not st.session_state["authenticated"]:
+    login()
+elif not st.session_state["uploaded_file"]:
+    file_upload()
+else:
+    dashboard()
