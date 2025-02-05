@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 
-# Import the Market Overview Dashboard\import market_overview_dashboard
-
 # ================== CONFIGURATION ==================
 st.set_page_config(page_title="Core System Foundation", layout="wide")
 
@@ -69,7 +67,7 @@ def main():
         logout()
 
     if selected_option == "Market Overview":
-        market_overview_dashboard.show_dashboard()
+        st.write("Market Overview Dashboard Placeholder")
 
 # ================== ENHANCEMENTS ==================
 # Secure file handling
