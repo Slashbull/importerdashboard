@@ -1,75 +1,94 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from google.auth.transport.requests import Request
-from google.auth import default
+import polars as pl
+import hashlib
 
-# Function to load Google Sheets data
-def load_google_sheet(sheet_url):
-    # Authenticate using the default credentials
-    creds, _ = default()
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    client = gspread.authorize(creds)
+# ==================== LOGIN SYSTEM ====================
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# Dummy user credentials (Can be expanded for multi-user authentication)
+USER_CREDENTIALS = {
+    "admin": hash_password("importer@123")  # Change this password securely
+}
+
+def login():
+    st.sidebar.header("Login")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Login"):
+        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == hash_password(password):
+            st.session_state["authenticated"] = True
+            st.session_state["username"] = username
+            st.sidebar.success("Login Successful!")
+        else:
+            st.sidebar.error("Invalid Credentials")
+
+def logout():
+    st.session_state.clear()
+    st.experimental_rerun()
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    login()
+    st.stop()
+
+# ==================== DATA UPLOAD SYSTEM ====================
+st.title("Importer Dashboard - Data Upload & Processing")
+
+uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
+
+def load_data(file):
+    """Load CSV or Excel data into a Polars DataFrame."""
+    if file.name.endswith(".csv"):
+        df = pl.read_csv(file)
+    else:
+        df = pl.read_excel(file)
+    return df
+
+if uploaded_file:
+    df = load_data(uploaded_file)
+    st.write("### Raw Data Preview:")
+    st.write(df.head(10))
     
-    # Open the Google Sheet by URL and load the first sheet
-    sheet = client.open_by_url(sheet_url).sheet1
-    data = pd.DataFrame(sheet.get_all_records())
-    return data
-
-# Function to load data from Excel or CSV
-def load_file(uploaded_file):
-    if uploaded_file.name.endswith('.csv'):
-        return pd.read_csv(uploaded_file)
-    elif uploaded_file.name.endswith('.xlsx'):
-        return pd.read_excel(uploaded_file)
-
-# Streamlit UI
-st.title("Powerful Dashboard for Data Analysis")
-
-# Sidebar for file upload or Google Sheets link
-st.sidebar.title("Upload Options")
-
-# Option 1: Google Sheets Link
-sheet_url = st.sidebar.text_input("Enter Google Sheets URL")
-
-# Option 2: Upload File (CSV or Excel)
-uploaded_file = st.sidebar.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
-
-if sheet_url:
-    data = load_google_sheet(sheet_url)
-    st.write("Data loaded from Google Sheets")
-elif uploaded_file is not None:
-    data = load_file(uploaded_file)
-    st.write(f"Data loaded from {uploaded_file.name}")
-else:
-    st.warning("Please upload a file or provide a Google Sheets URL.")
-
-# Display the data
-if 'data' in locals():
-    st.write(data)
-
-    # Sidebar Filters
-    st.sidebar.title("Filters")
-    state_filter = st.sidebar.multiselect("Select State", options=data['State'].unique(), default=data['State'].unique())
-    year_filter = st.sidebar.multiselect("Select Year", options=data['Year'].unique(), default=data['Year'].unique())
-    month_filter = st.sidebar.multiselect("Select Month", options=data['Month'].unique(), default=data['Month'].unique())
-    consignee_filter = st.sidebar.multiselect("Select Consignee", options=data['Consignee'].unique(), default=data['Consignee'].unique())
-    exporter_filter = st.sidebar.multiselect("Select Exporter", options=data['Exporter'].unique(), default=data['Exporter'].unique())
-
-    # Filter the data
-    filtered_data = data[
-        data['State'].isin(state_filter) &
-        data['Year'].isin(year_filter) &
-        data['Month'].isin(month_filter) &
-        data['Consignee'].isin(consignee_filter) &
-        data['Exporter'].isin(exporter_filter)
-    ]
-
-    # Display filtered data
-    st.write(filtered_data)
-
-    # Example chart: Quantity by State
-    st.subheader("Quantity by State")
-    state_quantity = filtered_data.groupby('State')['Quanity'].sum().reset_index()
-    st.bar_chart(state_quantity.set_index('State')['Quanity'])
+    # ==================== DATA CLEANING & PROCESSING ====================
+    
+    # Convert Quantity column to numeric (Kgs & Tons Toggle)
+    df = df.with_columns(
+        pl.col("Quanity").str.replace_all("[^0-9]", "").cast(pl.Float64).alias("Quantity_Kgs")
+    )
+    df = df.with_columns(
+        (pl.col("Quantity_Kgs") / 1000).alias("Quantity_Tons")
+    )
+    
+    # Convert Month column to numeric format
+    month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+    df = df.with_columns(
+        pl.col("Month").replace(month_map).alias("Month_Num")
+    )
+    
+    # Display cleaned data
+    st.write("### Processed Data Preview:")
+    st.write(df.head(10))
+    
+    # ==================== FILTER SYSTEM ====================
+    st.sidebar.subheader("Filters")
+    selected_year = st.sidebar.selectbox("Select Year", df["Year"].unique().to_list())
+    selected_state = st.sidebar.selectbox("Select Consignee State", ["All"] + df["Consignee State"].unique().to_list())
+    selected_supplier = st.sidebar.selectbox("Select Exporter", ["All"] + df["Exporter"].unique().to_list())
+    
+    # Apply filters
+    filtered_df = df.filter(pl.col("Year") == selected_year)
+    if selected_state != "All":
+        filtered_df = filtered_df.filter(pl.col("Consignee State") == selected_state)
+    if selected_supplier != "All":
+        filtered_df = filtered_df.filter(pl.col("Exporter") == selected_supplier)
+    
+    st.write("### Filtered Data Preview:")
+    st.write(filtered_df.head(10))
+    
+    # Logout Button
+    if st.sidebar.button("Logout"):
+        logout()
