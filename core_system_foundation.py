@@ -62,11 +62,11 @@ def validate_data(file):
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             st.error(f"Missing Required Columns: {missing_columns}")
-            return False
-        return True
+            return None
+        return df
     except Exception as e:
         st.error(f"Error validating file: {e}")
-        return False
+        return None
 
 # ---- File Upload Page ---- #
 def file_upload():
@@ -74,7 +74,8 @@ def file_upload():
     st.markdown("Only CSV files are supported.")
     uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"], help="Upload your CSV file")
     if uploaded_file is not None:
-        if validate_data(uploaded_file.getvalue()):
+        df = validate_data(uploaded_file.getvalue())
+        if df is not None:
             try:
                 st.session_state["uploaded_file"] = uploaded_file.getvalue()
                 st.success("File uploaded successfully! Redirecting to Market Overview...")
