@@ -98,26 +98,32 @@ if df is not None:
     
     # ==================== FILTER SYSTEM ====================
     st.sidebar.subheader("Filters")
-    selected_years = st.sidebar.multiselect("Select Year", ["All"] + df["Year"].unique().to_list(), default=["All"])
-    selected_states = st.sidebar.multiselect("Select Consignee State", ["All"] + df["Consignee State"].unique().to_list(), default=["All"])
-    selected_suppliers = st.sidebar.multiselect("Select Exporter", ["All"] + df["Exporter"].unique().to_list(), default=["All"])
-    selected_consignees = st.sidebar.multiselect("Select Consignee", ["All"] + df["Consignee"].unique().to_list(), default=["All"])
-    selected_months = st.sidebar.multiselect("Select Month", ["All"] + df["Month"].unique().to_list(), default=["All"])
+    years = ["All"] + df["Year"].unique().to_list()
+    states = ["All"] + df["Consignee State"].unique().to_list()
+    suppliers = ["All"] + df["Exporter"].unique().to_list()
+    consignees = ["All"] + df["Consignee"].unique().to_list()
+    months = ["All"] + df["Month"].unique().to_list()
     
-    # Apply filters only if not "All"
+    selected_years = st.sidebar.multiselect("Select Year", years, default=["All"])
+    selected_states = st.sidebar.multiselect("Select Consignee State", states, default=["All"])
+    selected_suppliers = st.sidebar.multiselect("Select Exporter", suppliers, default=["All"])
+    selected_consignees = st.sidebar.multiselect("Select Consignee", consignees, default=["All"])
+    selected_months = st.sidebar.multiselect("Select Month", months, default=["All"])
+    
+    filtered_df = df
     if "All" not in selected_years:
-        df = df.filter(pl.col("Year").is_in(selected_years))
+        filtered_df = filtered_df.filter(pl.col("Year").is_in(selected_years))
     if "All" not in selected_states:
-        df = df.filter(pl.col("Consignee State").is_in(selected_states))
+        filtered_df = filtered_df.filter(pl.col("Consignee State").is_in(selected_states))
     if "All" not in selected_suppliers:
-        df = df.filter(pl.col("Exporter").is_in(selected_suppliers))
+        filtered_df = filtered_df.filter(pl.col("Exporter").is_in(selected_suppliers))
     if "All" not in selected_consignees:
-        df = df.filter(pl.col("Consignee").is_in(selected_consignees))
+        filtered_df = filtered_df.filter(pl.col("Consignee").is_in(selected_consignees))
     if "All" not in selected_months:
-        df = df.filter(pl.col("Month").is_in(selected_months))
+        filtered_df = filtered_df.filter(pl.col("Month").is_in(selected_months))
     
     st.write("### Filtered Data Preview:")
-    st.write(df.head(10))
+    st.write(filtered_df.head(10))
     
     # Logout Button
     if st.sidebar.button("Logout"):
