@@ -49,8 +49,9 @@ with tabs[0]:
     uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
     gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
 
+    @st.cache_data
     def load_data(file):
-        """Load CSV or Excel data into a Pandas DataFrame with proper column renaming."""
+        """Load CSV or Excel data into a Pandas DataFrame with optimized error handling."""
         try:
             with st.spinner("📂 Loading Data... Please wait."):
                 if file.name.endswith(".csv"):
@@ -60,13 +61,15 @@ with tabs[0]:
                 
                 column_mapping = {"Quanity": "Quantity", "Month ": "Month"}
                 df.rename(columns=column_mapping, inplace=True)
+                
                 return df
         except Exception as e:
             st.error(f"❌ Error loading file: {e}")
             return None
 
+    @st.cache_data
     def load_google_sheets(url):
-        """Load data from Google Sheets."""
+        """Load data from Google Sheets with better error handling."""
         try:
             with st.spinner("📂 Fetching Data from Google Sheets... Please wait."):
                 sheet_id = url.split("/d/")[1].split("/")[0]
@@ -90,7 +93,7 @@ with tabs[0]:
         
         # ==================== DATA CLEANING & PROCESSING ====================
         if "Quantity" in df.columns:
-            df["Quantity"] = df["Quantity"].astype(str).str.replace("[^0-9]", "", regex=True).astype(float)
+            df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0)
             df["Quantity_Tons"] = df["Quantity"] / 1000
         
         month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
@@ -103,31 +106,23 @@ with tabs[0]:
         # Store filtered data in session state
         st.session_state["filtered_data"] = df.copy()
 
-        # ==================== EXPORT DATA ====================
-        st.sidebar.subheader("📥 Export Data")
-        export_format = st.sidebar.radio("Select Format", ["CSV", "Excel"])
-        if st.sidebar.button("Download Filtered Data"):
-            if export_format == "CSV":
-                df.to_csv("filtered_data.csv", index=False)
-                st.sidebar.download_button("Download CSV", open("filtered_data.csv", "rb"), "filtered_data.csv", "text/csv")
-            else:
-                df.to_excel("filtered_data.xlsx", index=False)
-                st.sidebar.download_button("Download Excel", open("filtered_data.xlsx", "rb"), "filtered_data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 with tabs[1]:
     # ==================== MARKET OVERVIEW SCREEN ====================
     st.subheader("Market Overview")
     if "filtered_data" in st.session_state:
         df = st.session_state["filtered_data"].copy()
-        st.write("### Data Summary")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Imports (Kgs)", f"{df['Quantity'].sum():,.0f}")
-        col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity"].sum().idxmax())
-        col3.metric("Top Exporter", df.groupby("Exporter")["Quantity"].sum().idxmax())
-        
-        st.write("### Monthly Import Trends")
-        monthly_trends = df.groupby("Month")["Quantity"].sum().reset_index()
-        st.line_chart(monthly_trends, x="Month", y="Quantity")
+        if "Quantity" in df.columns:
+            st.write("### Data Summary")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Imports (Kgs)", f"{df['Quantity'].sum():,.0f}")
+            col2.metric("Top Importing State", df.groupby("Consignee State")["Quantity"].sum().idxmax())
+            col3.metric("Top Exporter", df.groupby("Exporter")["Quantity"].sum().idxmax())
+            
+            st.write("### Monthly Import Trends")
+            monthly_trends = df.groupby("Month")["Quantity"].sum().reset_index()
+            st.line_chart(monthly_trends, x="Month", y="Quantity")
+        else:
+            st.error("Quantity column missing in the dataset.")
     else:
         st.error("No data available. Please upload a file in the Data Upload tab.")
 
