@@ -45,6 +45,7 @@ if not st.session_state["authenticated"]:
 st.title("Importer Dashboard - Data Upload & Processing")
 
 uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
+gsheet_url = st.text_input("Enter Google Sheets Link (Optional)")
 
 def load_data(file):
     """Load CSV or Excel data into a Polars DataFrame with proper column renaming."""
@@ -61,8 +62,17 @@ def load_data(file):
     df = df.rename(column_mapping)
     return df
 
+def load_google_sheets(url):
+    """Load data from Google Sheets."""
+    sheet_id = url.split("/d/")[1].split("/")[0]
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+    df = pl.read_csv(sheet_url)
+    return df
+
 if uploaded_file:
     df = load_data(uploaded_file)
+elif gsheet_url:
+    df = load_google_sheets(gsheet_url)
 else:
     df = None
 
