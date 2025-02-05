@@ -20,7 +20,7 @@ def authenticate_user(username, password):
 
 def logout():
     st.session_state.clear()
-    st.experimental_rerun()
+    st.rerun()
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
