@@ -81,8 +81,8 @@ if df is not None:
         # Data Cleaning
         month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
                      "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-        df["Quanity (Kgs)"] = df["Quanity (Kgs)"].astype(str).str.replace(" Kgs", "").astype(float)
-        df["Quanity (Tons)"] = df["Quanity (Tons)"].astype(str).str.replace(" tons", "").astype(float)
+        df["Quanity (Kgs)"] = df["Quanity (Kgs)"].astype(str).str.replace(" Kgs", "").str.replace(",", "").astype(float)
+        df["Quanity (Tons)"] = df["Quanity (Tons)"].astype(str).str.replace(" tons", "").str.replace(",", "").astype(float)
         df["Month"] = df["Month"].map(month_map)
         df["Consignee State"].fillna("Unknown", inplace=True)
         df.drop_duplicates(inplace=True)  # Remove exact duplicate rows
