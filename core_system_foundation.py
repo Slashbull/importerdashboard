@@ -53,7 +53,7 @@ upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Shee
 
 df = None
 if upload_option == "Upload CSV":
-    uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"])
+    uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"], help="Upload a CSV file containing import data.")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         st.success("✅ File uploaded successfully!")
@@ -89,12 +89,13 @@ if df is not None:
         df["Consignee State"].fillna("Unknown", inplace=True)
 
         # Success Message with Summary Statistics
-        st.success(f"✅ {len(df)} rows loaded successfully after processing.")
-        st.write(f"### Dataset Summary:")
-        st.write(f"- **Total Rows:** {len(df)}")
+        total_rows = len(df)
+        st.success(f"✅ {total_rows} rows loaded successfully after processing.")
+        st.write("### Dataset Summary:")
+        st.write(f"- **Total Rows:** {total_rows}")
         st.write(f"- **Total Columns:** {len(df.columns)}")
         st.write(f"- **Columns:** {', '.join(df.columns)}")
-        st.write(f"- **Top 3 Consignees by Quantity (Kgs):**")
+        st.write("- **Top 3 Consignees by Quantity (Kgs):**")
         st.write(df.groupby("Consignee")["Quanity (Kgs)"].sum().nlargest(3))
 
         # ---- Navigate to Market Overview ---- #
