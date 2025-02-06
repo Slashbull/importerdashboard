@@ -34,7 +34,6 @@ def authenticate_user():
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
                 st.session_state["current_tab"] = "Upload Data"
-                # Set the query parameter using the new API
                 st.set_query_params(tab="Upload Data")
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
@@ -52,8 +51,9 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
+    Now, only the 'Tons' column is used.
     """
-    numeric_cols = ["Kgs", "Tons"]
+    numeric_cols = ["Tons"]
     for col in numeric_cols:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(",", "", regex=False).str.strip()
@@ -66,7 +66,6 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
     Load CSV data with caching.
     """
     try:
-        # Adjust the delimiter if your CSV is not comma-delimited.
         df = pd.read_csv(uploaded_file, low_memory=False)
     except Exception as e:
         st.error(f"🚨 Error processing CSV file: {e}")
@@ -103,7 +102,7 @@ def upload_data():
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
         # Immediately apply global filters
-        filtered_df, unit_col = apply_filters(df)
+        filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
     else:
@@ -147,7 +146,7 @@ def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
 
-    # Authenticate the user first
+    # Authenticate the user
     authenticate_user()
     logout_button()
 
