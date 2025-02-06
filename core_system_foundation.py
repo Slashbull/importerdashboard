@@ -6,6 +6,8 @@ from market_overview import market_overview_dashboard
 from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
+from ai_based_alerts_forecasting import ai_based_alerts_forecasting
+
 
 # ---- Core System Foundation (Future-Ready Design) ---- #
 
@@ -30,7 +32,7 @@ st.sidebar.success("✅ Logged in")
 st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
 
 # Navigation
-tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance", "State-Level Market Insights"])
+tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance", "State-Level Market Insights, "AI-Based Alerts & Forecasting"])
 
 if tab_selection == "Upload Data":
     # ---- Upload Data Page ---- #
@@ -127,3 +129,10 @@ elif tab_selection == "State-Level Market Insights":
         state_level_market_insights()
     except Exception as e:
         st.error(f"🚨 Error loading State-Level Market Insights Dashboard: {e}")
+
+elif tab_selection == "AI-Based Alerts & Forecasting":
+    try:
+        ai_based_alerts_forecasting()
+    except Exception as e:
+        st.error(f"🚨 Error loading AI-Based Alerts & Forecasting Dashboard: {e}")
+
