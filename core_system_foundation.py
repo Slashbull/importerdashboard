@@ -33,7 +33,7 @@ def login():
             st.session_state["authenticated"] = True
             st.success("✅ Login successful!")
             st.session_state["current_tab"] = "Market Overview"
-st.experimental_set_query_params(tab="Market Overview")
+    st.experimental_set_query_params(tab="Market Overview")
         else:
             st.error("🚨 Invalid Username or Password")
 
@@ -41,7 +41,7 @@ def logout():
     """Logs out the user."""
     st.session_state["authenticated"] = False
     st.session_state["current_tab"] = "Market Overview"
-st.experimental_set_query_params(tab="Market Overview")
+    st.experimental_set_query_params(tab="Market Overview")
 
 if not st.session_state["authenticated"]:
     login()
@@ -79,7 +79,7 @@ if tab_selection == "Upload Data":
             st.session_state["uploaded_data"] = df
             st.success("✅ File uploaded and cleaned successfully! Redirecting...")
             st.session_state["current_tab"] = "Market Overview"
-st.experimental_set_query_params(tab="Market Overview")
+    st.experimental_set_query_params(tab="Market Overview")
     
     elif upload_option == "Google Sheet Link":
         sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
@@ -105,7 +105,7 @@ st.experimental_set_query_params(tab="Market Overview")
                 st.session_state["uploaded_data"] = df
                 st.success(f"✅ Data loaded and cleaned from sheet: {sheet_name}. Redirecting...")
                 st.session_state["current_tab"] = "Market Overview"
-st.experimental_set_query_params(tab="Market Overview")
+    st.experimental_set_query_params(tab="Market Overview")
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
 
