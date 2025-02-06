@@ -1,35 +1,52 @@
-📂 importer_dashboard/   # Main project folder
-│
-├── 📂 core/                # Core System (Heart of the Project)
-│   ├── authentication.py   # Handles login, logout, and session management
-│   ├── navigation.py       # Sidebar & dashboard navigation control
-│   ├── data_processing.py  # Data validation, cleaning, and transformation
-│   ├── caching.py          # Implements efficient caching & lazy loading
-│   ├── security.py         # Handles session security, encryption, etc.
-│   ├── __init__.py         # Makes "core" a package
-│
-├── 📂 dashboards/         # Dashboards & Analytics
-│   ├── market_overview.py  # Market Overview Dashboard
-│   ├── competitor_insights.py  # Competitor Analysis Dashboard
-│   ├── supplier_analysis.py  # Supplier Performance Dashboard
-│   ├── __init__.py         # Makes "dashboards" a package
-│
-├── 📂 data/               # Data Storage & Handling
-│   ├── sample_data.csv     # Sample test data
-│   ├── processed_data/     # Folder for cleaned/validated CSVs
-│
-├── 📂 utils/              # Utility Functions
-│   ├── file_handler.py     # Upload/download file handling
-│   ├── logger.py           # Logging system for debugging
-│   ├── config.py           # Global settings & configurations
-│   ├── __init__.py         # Makes "utils" a package
-│
-├── 📂 tests/              # Automated Testing
-│   ├── test_auth.py        # Tests authentication system
-│   ├── test_data_processing.py  # Tests data cleaning
-│   ├── test_dashboard.py   # Tests dashboard rendering
-│
-├── core_system_foundation.py  # Main entry point (imports all modules)
-├── requirements.txt        # Python dependencies
-├── README.md              # Project Documentation
-└── .gitignore             # Ignore unnecessary files
+Project Structure for Import/Export Analytics Dashboard
+--------------------------------------------------------
+.env
+    - Contains environment-specific variables (e.g., API keys, secrets).
+
+ai_based_alerts_forecasting.py
+    - Module for AI-based alerts and forecasting.
+    - Detects anomalies and forecasts market trends using historical data.
+
+competitor_intelligence_dashboard.py
+    - Module for competitor intelligence.
+    - Displays top competitors, exporter breakdowns, and growth analysis.
+
+config.py
+    - Configuration settings (e.g., login credentials, default sheet names).
+
+core_system_foundation.py
+    - Main application entry point.
+    - Handles user authentication, data upload, global filtering, and routing to individual dashboards.
+
+filters.py
+    - Module for applying data filters.
+    - Provides consistent filtering across all dashboards.
+
+market_overview.py
+    - Module for the Market Overview Dashboard.
+    - Provides KPIs, trend analysis, market share, and importer/exporter breakdowns.
+
+product_insights_dashboard.py
+    - Module for Product Insights.
+    - Automatically generates candidate product categories from product descriptions using TF-IDF and clustering.
+    - Uses fuzzy matching to classify products.
+
+reporting_data_exports.py
+    - Module for Reporting & Data Exports.
+    - Generates and exports reports in CSV, Excel, and PDF formats.
+    - Optionally includes summary metrics.
+
+requirements.txt
+    - Lists all required Python packages and dependencies for the project.
+
+state_level_market_insights.py
+    - Module for State-Level Market Insights.
+    - Provides KPIs, trend analysis, growth analysis, and detailed state-level data.
+
+supplier_performance_dashboard.py
+    - Module for Supplier Performance.
+    - Displays supplier KPIs, trends, risk analysis, and importer connection insights.
+
+structure.txt
+    - (This file) Outlines the project structure and explains the purpose of each module.
+--------------------------------------------------------
