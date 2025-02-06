@@ -28,20 +28,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using st.set_query_params with error ignoring
+# Query Parameters Update using st.set_query_params with error ignore
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
     Update query parameters using st.set_query_params.
     Each parameter value is wrapped in a list if it isn’t already.
-    If updating fails, ignore the error and log it.
+    If st.set_query_params is unavailable, the error is caught and ignored.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
     try:
         st.set_query_params(**new_params)
     except Exception as e:
-        # Log the error but do not show it to the user.
         logger.exception("Failed to update query parameters: %s", e)
+        # Optionally, you can pass silently if desired:
+        pass
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
@@ -107,7 +108,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both the raw and filtered data in session_state.
+    and store both raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
