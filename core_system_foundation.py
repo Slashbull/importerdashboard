@@ -62,7 +62,6 @@ if tab_selection == "Upload Data":
             df = pd.read_csv(uploaded_file)
             st.session_state["uploaded_data"] = df
             st.success("✅ File uploaded successfully! Redirecting...")
-            st.session_state["current_tab"] = "Market Overview"
             st.experimental_rerun()
     
     elif upload_option == "Google Sheet Link":
@@ -75,7 +74,6 @@ if tab_selection == "Upload Data":
                 df = pd.read_csv(url)
                 st.session_state["uploaded_data"] = df
                 st.success(f"✅ Data loaded from sheet: {sheet_name}. Redirecting...")
-                st.session_state["current_tab"] = "Market Overview"
                 st.experimental_rerun()
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
