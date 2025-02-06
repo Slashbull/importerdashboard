@@ -47,7 +47,7 @@ def market_overview_dashboard(data: pd.DataFrame):
         unique_exporters = data["Exporter"].nunique()
         avg_imports = total_imports / unique_consignees if unique_consignees > 0 else 0
         
-        # Calculate Month-over-Month Growth
+        # Calculate Month-over-Month (MoM) Growth
         monthly_data = data.groupby("Month")["Tons"].sum().reset_index()
         monthly_data["Month_Order"] = monthly_data["Month"].map(month_order)
         monthly_data = monthly_data.sort_values("Month_Order")
@@ -66,14 +66,13 @@ def market_overview_dashboard(data: pd.DataFrame):
 
         st.markdown("---")
         st.subheader("Market Share Overview")
-        # Pie chart for Consignee Market Share
+        # Donut chart for Consignee Market Share
         cons_share = data.groupby("Consignee")["Tons"].sum().reset_index()
-        fig_pie = px.pie(
+        fig_donut = px.pie(
             cons_share, names="Consignee", values="Tons",
-            title="Market Share by Consignee",
-            hole=0.4  # Donut style
+            title="Market Share by Consignee", hole=0.4
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_donut, use_container_width=True)
 
     # ---------------------------
     # Tab 2: Trends – Time Series Analysis
@@ -91,7 +90,6 @@ def market_overview_dashboard(data: pd.DataFrame):
         )
         st.plotly_chart(fig_line, use_container_width=True)
         
-        # If data spans multiple years, provide a breakdown by Year
         if data["Year"].nunique() > 1:
             st.markdown("#### Trends by Year")
             yearly_trends = data.groupby(["Year", "Month"])["Tons"].sum().reset_index()
@@ -139,21 +137,22 @@ def market_overview_dashboard(data: pd.DataFrame):
         
         st.markdown("---")
         st.subheader("Importer/Exporter Contribution")
-        st.markdown("This chart shows, for each importer (Consignee), the contribution (in Tons) from each exporter.")
-        # Group by Consignee and Exporter
-        contrib = data.groupby(["Consignee", "Exporter"])["Tons"].sum().reset_index()
-        fig_stacked = px.bar(
-            contrib,
-            x="Consignee", y="Tons",
-            color="Exporter",
-            title="Stacked Contribution by Importer",
-            labels={"Tons": "Total Tons"},
-            text_auto=True
+        st.markdown("This sunburst chart shows, in a hierarchical way, how each importer (Consignee) is connected with various exporters, with segment size representing the Tons.")
+        # Group data for the sunburst chart
+        contribution = data.groupby(["Consignee", "Exporter"])["Tons"].sum().reset_index()
+        fig_sunburst = px.sunburst(
+            contribution,
+            path=["Consignee", "Exporter"],
+            values="Tons",
+            title="Importer/Exporter Contribution",
+            color="Tons",
+            color_continuous_scale="Blues",
+            hover_data={"Tons": True}
         )
-        st.plotly_chart(fig_stacked, use_container_width=True)
+        st.plotly_chart(fig_sunburst, use_container_width=True)
         
-        st.markdown("#### Contribution Pivot Table")
-        pivot_table = contrib.pivot(index="Consignee", columns="Exporter", values="Tons").fillna(0)
+        st.markdown("#### Detailed Contribution Data")
+        pivot_table = contribution.pivot(index="Consignee", columns="Exporter", values="Tons").fillna(0)
         st.dataframe(pivot_table)
 
     st.success("✅ Market Overview Dashboard Loaded Successfully!")
