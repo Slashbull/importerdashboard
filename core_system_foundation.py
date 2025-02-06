@@ -5,10 +5,6 @@ from io import StringIO
 import plotly.express as px
 import logging
 
-# Uncomment and configure Sentry for real-time error monitoring in production:
-# import sentry_sdk
-# sentry_sdk.init(dsn="YOUR_SENTRY_DSN_HERE", traces_sample_rate=1.0)
-
 # Import configuration and filters
 import config
 from filters import apply_filters
@@ -32,15 +28,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using the new API
+# Query Parameters Update using the new API (with fallback)
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters using st.set_query_params.
+    Update query parameters.
     Each parameter value is wrapped in a list if it isn’t already.
+    Uses st.set_query_params if available; otherwise, falls back to st.experimental_set_query_params.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
-    st.set_query_params(**new_params)
+    try:
+        st.set_query_params(**new_params)
+    except AttributeError:
+        st.experimental_set_query_params(**new_params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
@@ -81,7 +81,7 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
-    Only the 'Tons' column is processed.
+    Only the 'Tons' column is used.
     """
     numeric_cols = ["Tons"]
     for col in numeric_cols:
@@ -106,7 +106,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both raw and filtered data in session_state.
+    and store both the raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
