@@ -16,7 +16,7 @@ from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
 from reporting_data_exports import reporting_data_exports
-from product_insights_dashboard import product_insights_dashboard  # <-- New module
+from product_insights_dashboard import product_insights_dashboard  # New module
 
 # -----------------------------------------------------------------------------
 # Logging configuration
@@ -28,17 +28,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Fallback for Query Parameters Update
+# Query Parameters Update using new API
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Try to update query parameters using st.set_query_params.
-    If unavailable, fall back to st.experimental_set_query_params.
+    Update query parameters using the new st.query_params API.
     """
-    try:
-        st.set_query_params(**params)
-    except AttributeError:
-        st.experimental_set_query_params(**params)
+    st.query_params(**params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
@@ -194,7 +190,7 @@ def main():
     authenticate_user()
     logout_button()
 
-    # Use a dropdown (selectbox) for navigation
+    # Navigation: Use a dropdown (selectbox) for switching between dashboards.
     tabs = [
         "Upload Data", 
         "Market Overview", 
@@ -208,12 +204,12 @@ def main():
     current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # Update global filter if data exists
+    # Update the global filter if data exists.
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the selected dashboard page
+    # Route to the selected dashboard module.
     try:
         if current_tab == "Upload Data":
             df = upload_data()
@@ -229,12 +225,12 @@ def main():
             supplier_performance_dashboard(get_current_data())
         elif current_tab == "State-Level Market Insights":
             state_level_market_insights(get_current_data())
+        elif current_tab == "Product Insights":
+            product_insights_dashboard(get_current_data())
         elif current_tab == "AI-Based Alerts & Forecasting":
             ai_based_alerts_forecasting(get_current_data())
         elif current_tab == "Reporting & Data Exports":
             reporting_data_exports(get_current_data())
-        elif current_tab == "Product Insights":
-            product_insights_dashboard(get_current_data())
     except Exception as e:
         st.error(f"🚨 An error occurred: {e}")
         logger.exception("Error in main routing: %s", e)
