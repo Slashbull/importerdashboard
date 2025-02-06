@@ -63,132 +63,90 @@ def classify_mark(mark: str, candidate_categories: list = None, threshold: int =
     return "Other"
 
 # -----------------------------------------------------------------------------
-# Global Data Filters
+# Global Data Filters with Cascading (Smart) Filtering
 # -----------------------------------------------------------------------------
 def apply_filters(df: pd.DataFrame):
     """
-    Applies global filters to the DataFrame with real-time feedback.
-    Each filter provides an "All" option by default. If no option is selected,
-    the filter defaults to the full list of unique values.
-    
-    Filters include:
-      - Consignee State
-      - Month
-      - Year
-      - Consignee
-      - Exporter
-      - Product (derived from the "Mark" column)
+    Applies global filters to the DataFrame with real-time, cascading feedback.
+    Each filter is presented in a collapsible expander and provides an "All" option.
+    The available options for each filter are computed based on the full dataset filtered
+    by the other filter selections. If no selection is made (or "All" is selected),
+    that dimension is not used to restrict the data.
     
     Returns:
       - The filtered DataFrame.
       - The unit column (fixed as "Tons").
     """
     st.sidebar.header("🔍 Global Data Filters")
-    
-    # Reset button to restore default filters.
+
+    # --- Reset Filters Button ---
     if st.sidebar.button("Reset Filters", key="reset_filters"):
         st.rerun()
 
+    # A helper function to return the full list if selection is empty or contains "All"
     def ensure_selection(selected, full_list):
-        """Return full list if selection is empty."""
-        if not selected or len(selected) == 0:
+        if not selected or "All" in selected:
             return full_list
         return selected
 
-    # --- Filter by Consignee State ---
+    # Create a dictionary to hold the current filter selections.
+    # We first compute full lists for each filter from the full df.
+    full_states = sorted(df["Consignee State"].dropna().unique().tolist()) if "Consignee State" in df.columns else []
+    full_months = sorted(df["Month"].dropna().unique().tolist()) if "Month" in df.columns else []
+    full_years = sorted([str(y) for y in df["Year"].dropna().unique().tolist()]) if "Year" in df.columns else []
+    full_consignees = sorted(df["Consignee"].dropna().unique().tolist()) if "Consignee" in df.columns else []
+    full_exporters = sorted(df["Exporter"].dropna().unique().tolist()) if "Exporter" in df.columns else []
+    
+    # For product, ensure the Product column exists.
+    if "Mark" in df.columns and "Product" not in df.columns:
+        candidate_categories = generate_candidate_categories(df, num_clusters=5)
+        df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
+    full_products = sorted(df["Product"].dropna().unique().tolist()) if "Product" in df.columns else []
+
+    # Display each filter in an expander and get the current selection.
     with st.sidebar.expander("Filter by Consignee State", expanded=True):
-        if "Consignee State" in df.columns:
-            states = sorted(df["Consignee State"].dropna().unique().tolist())
-            state_options = ["All"] + states
-            selected_states = st.multiselect("📌 Select State:", options=state_options, default=["All"], key="state_filter")
-            if "All" in selected_states:
-                selected_states = states
-            selected_states = ensure_selection(selected_states, states)
-        else:
-            selected_states = []
+        selected_states = st.multiselect("📌 Select State:", options=["All"] + full_states, default=["All"], key="state_filter")
+        selected_states = ensure_selection(selected_states, full_states)
 
-    # --- Filter by Month ---
     with st.sidebar.expander("Filter by Month", expanded=True):
-        if "Month" in df.columns:
-            months = sorted(df["Month"].dropna().unique().tolist())
-            month_options = ["All"] + months
-            selected_months = st.multiselect("📅 Select Month:", options=month_options, default=["All"], key="month_filter")
-            if "All" in selected_months:
-                selected_months = months
-            selected_months = ensure_selection(selected_months, months)
-        else:
-            selected_months = []
+        selected_months = st.multiselect("📅 Select Month:", options=["All"] + full_months, default=["All"], key="month_filter")
+        selected_months = ensure_selection(selected_months, full_months)
 
-    # --- Filter by Year ---
     with st.sidebar.expander("Filter by Year", expanded=True):
-        if "Year" in df.columns:
-            years = sorted(df["Year"].dropna().unique().tolist())
-            year_options = ["All"] + [str(y) for y in years]
-            selected_years = st.multiselect("📆 Select Year:", options=year_options, default=["All"], key="year_filter")
-            if "All" in selected_years:
-                selected_years = [str(y) for y in years]
-            selected_years = ensure_selection(selected_years, [str(y) for y in years])
-        else:
-            selected_years = []
+        selected_years = st.multiselect("📆 Select Year:", options=["All"] + full_years, default=["All"], key="year_filter")
+        selected_years = ensure_selection(selected_years, full_years)
 
-    # --- Filter by Consignee ---
     with st.sidebar.expander("Filter by Consignee", expanded=True):
-        if "Consignee" in df.columns:
-            consignees = sorted(df["Consignee"].dropna().unique().tolist())
-            consignee_options = ["All"] + consignees
-            selected_consignees = st.multiselect("🏢 Select Consignee:", options=consignee_options, default=["All"], key="consignee_filter")
-            if "All" in selected_consignees:
-                selected_consignees = consignees
-            selected_consignees = ensure_selection(selected_consignees, consignees)
-        else:
-            selected_consignees = []
+        selected_consignees = st.multiselect("🏢 Select Consignee:", options=["All"] + full_consignees, default=["All"], key="consignee_filter")
+        selected_consignees = ensure_selection(selected_consignees, full_consignees)
 
-    # --- Filter by Exporter ---
     with st.sidebar.expander("Filter by Exporter", expanded=True):
-        if "Exporter" in df.columns:
-            exporters = sorted(df["Exporter"].dropna().unique().tolist())
-            exporter_options = ["All"] + exporters
-            selected_exporters = st.multiselect("🚢 Select Exporter:", options=exporter_options, default=["All"], key="exporter_filter")
-            if "All" in selected_exporters:
-                selected_exporters = exporters
-            selected_exporters = ensure_selection(selected_exporters, exporters)
-        else:
-            selected_exporters = []
+        selected_exporters = st.multiselect("🚢 Select Exporter:", options=["All"] + full_exporters, default=["All"], key="exporter_filter")
+        selected_exporters = ensure_selection(selected_exporters, full_exporters)
 
-    # --- Filter by Product (derived from "Mark") ---
     with st.sidebar.expander("Filter by Product", expanded=True):
-        if "Mark" in df.columns:
-            if "Product" not in df.columns:
-                candidate_categories = generate_candidate_categories(df, num_clusters=5)
-                df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
-            products = sorted(df["Product"].dropna().unique().tolist())
-            product_options = ["All"] + products
-            selected_products = st.multiselect("🔖 Select Product:", options=product_options, default=["All"], key="product_filter")
-            if "All" in selected_products:
-                selected_products = products
-            selected_products = ensure_selection(selected_products, products)
-        else:
-            selected_products = []
+        selected_products = st.multiselect("🔖 Select Product:", options=["All"] + full_products, default=["All"], key="product_filter")
+        selected_products = ensure_selection(selected_products, full_products)
+
+    # Build a dictionary of selections for easier filtering.
+    filter_criteria = {
+        "Consignee State": selected_states,
+        "Month": selected_months,
+        "Year": selected_years,
+        "Consignee": selected_consignees,
+        "Exporter": selected_exporters,
+        "Product": selected_products,
+    }
+
+    # Apply cascading filtering: start with the full DataFrame, and for each filter, narrow it down.
+    filtered_df = df.copy()
+    for col, selection in filter_criteria.items():
+        if col in df.columns:
+            filtered_df = filtered_df[filtered_df[col].isin(selection)]
 
     # Define the unit column (fixed as "Tons")
     unit_column = "Tons"
     if unit_column in df.columns:
         df[unit_column] = pd.to_numeric(df[unit_column], errors='coerce')
-
-    # Apply filters with a loading spinner
-    with st.spinner("Applying filters..."):
-        filtered_df = df.copy()
-        if "Consignee State" in df.columns:
-            filtered_df = filtered_df[filtered_df["Consignee State"].isin(selected_states)]
-        if "Month" in df.columns:
-            filtered_df = filtered_df[filtered_df["Month"].isin(selected_months)]
-        if "Year" in df.columns:
-            filtered_df = filtered_df[filtered_df["Year"].astype(str).isin(selected_years)]
-        if "Consignee" in df.columns:
-            filtered_df = filtered_df[filtered_df["Consignee"].isin(selected_consignees)]
-        if "Exporter" in df.columns:
-            filtered_df = filtered_df[filtered_df["Exporter"].isin(selected_exporters)]
-        if "Product" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
 
     return filtered_df, unit_column
