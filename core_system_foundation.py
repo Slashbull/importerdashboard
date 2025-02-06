@@ -28,19 +28,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using the new API (with fallback)
+# Query Parameters Update using the new API
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters.
+    Update query parameters using st.set_query_params.
     Each parameter value is wrapped in a list if it isn’t already.
-    Uses st.set_query_params if available; otherwise, falls back to st.experimental_set_query_params.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
     try:
         st.set_query_params(**new_params)
-    except AttributeError:
-        st.experimental_set_query_params(**new_params)
+    except Exception as e:
+        st.error("Failed to update query parameters.")
+        logger.exception("Error in update_query_params: %s", e)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
@@ -81,7 +81,7 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
-    Only the 'Tons' column is used.
+    Only the 'Tons' column is processed.
     """
     numeric_cols = ["Tons"]
     for col in numeric_cols:
