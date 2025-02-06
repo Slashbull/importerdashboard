@@ -5,7 +5,7 @@ import plotly.express as px
 def competitor_intelligence_dashboard(data: pd.DataFrame):
     st.title("🤝 Competitor Intelligence Dashboard")
     
-    # Validate data presence and required columns.
+    # Validate data
     if data is None or data.empty:
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
@@ -16,22 +16,22 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Ensure Tons column is numeric.
+    # Ensure numeric conversion
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
-    
-    # Create a "Period" column if not present.
+
+    # Create a 'Period' column if not present
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
-    
-    # Create a tabbed layout.
-    tab_top, tab_exporters, tab_growth = st.tabs(["Top Competitors", "Exporters Breakdown", "Growth Analysis"])
+
+    # Define a tabbed layout for different sections
+    tab_top, tab_export, tab_growth = st.tabs(["Top Competitors", "Exporters Breakdown", "Growth & Trends"])
 
     # ---------------------------
     # Tab 1: Top Competitors
     # ---------------------------
     with tab_top:
-        st.subheader("Top Competitors by Import Volume")
-        # Group by competitor (Consignee) and sum Tons.
+        st.subheader("Top Competitors by Volume")
+        # Aggregate data by competitor (Consignee)
         top_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(5).reset_index()
         fig_top = px.bar(
             top_competitors,
@@ -47,9 +47,9 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     # ---------------------------
     # Tab 2: Exporters Breakdown
     # ---------------------------
-    with tab_exporters:
-        st.subheader("Exporters Used by Competitors")
-        # Get candidate competitors from the top 10.
+    with tab_export:
+        st.subheader("Exporters Breakdown for Selected Competitor")
+        # Derive a candidate list (top 10 competitors by volume)
         candidate_competitors = (
             data.groupby("Consignee")["Tons"]
             .sum()
@@ -58,15 +58,12 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
             .tolist()
         )
         selected_competitor = st.selectbox("Select a Competitor:", candidate_competitors)
-        filtered_data = data[data["Consignee"] == selected_competitor]
-        exporter_breakdown = (
-            filtered_data.groupby("Exporter")["Tons"]
-            .sum()
-            .reset_index()
-            .sort_values(by="Tons", ascending=False)
-        )
+        # Filter data for the selected competitor
+        comp_data = data[data["Consignee"] == selected_competitor]
+        # Group by Exporter for breakdown
+        exporter_breakdown = comp_data.groupby("Exporter")["Tons"].sum().reset_index().sort_values(by="Tons", ascending=False)
         st.markdown(f"### Exporters for {selected_competitor}")
-        fig_exp = px.bar(
+        fig_export = px.bar(
             exporter_breakdown,
             x="Exporter",
             y="Tons",
@@ -75,26 +72,28 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
             text_auto=True,
             color="Tons"
         )
-        st.plotly_chart(fig_exp, use_container_width=True)
+        st.plotly_chart(fig_export, use_container_width=True)
         st.markdown("#### Detailed Exporters Data")
         st.dataframe(exporter_breakdown)
 
     # ---------------------------
-    # Tab 3: Growth Analysis
+    # Tab 3: Growth & Trends
     # ---------------------------
     with tab_growth:
-        st.subheader("Competitor Growth Over Time")
-        # Group data by Consignee and Period for a time‑series analysis.
-        growth_df = data.groupby(["Consignee", "Period"])["Tons"].sum().unstack(fill_value=0)
-        st.line_chart(growth_df)
-
-        # Additional drill-down: Show period-over-period percentage change for a selected competitor.
-        selected_comp = st.selectbox("Select Competitor for Growth Analysis:", candidate_competitors)
-        comp_data = data[data["Consignee"] == selected_comp]
-        comp_growth = comp_data.groupby("Period")["Tons"].sum().pct_change() * 100
-        comp_growth = comp_growth.reset_index()
-        comp_growth.columns = ["Period", "Percentage Change (%)"]
-        st.markdown(f"#### Growth Percentage Change for {selected_comp}")
-        st.dataframe(comp_growth)
+        st.subheader("Competitor Trends Over Time")
+        # Time series line chart for all competitors
+        trends_df = data.groupby(["Consignee", "Period"])["Tons"].sum().unstack(fill_value=0)
+        st.line_chart(trends_df)
+        
+        # Drill-down: Choose a competitor and display period-over-period percentage change
+        candidate_competitors_growth = (
+            data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
+        )
+        selected_for_growth = st.selectbox("Select Competitor for Detailed Growth Analysis:", candidate_competitors_growth)
+        comp_trend = data[data["Consignee"] == selected_for_growth].groupby("Period")["Tons"].sum()
+        growth_pct = comp_trend.pct_change() * 100
+        growth_df = pd.DataFrame({"Period": growth_pct.index, "Percentage Change (%)": growth_pct.values}).reset_index(drop=True)
+        st.markdown(f"#### Period-over-Period Growth for {selected_for_growth}")
+        st.dataframe(growth_df)
 
     st.success("✅ Competitor Intelligence Dashboard Loaded Successfully!")
