@@ -28,13 +28,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using new API
+# Query Parameters Update using the new API
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters using the new st.query_params API.
+    Update query parameters using the new st.set_query_params API.
     """
-    st.query_params(**params)
+    st.set_query_params(**params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
@@ -204,7 +204,7 @@ def main():
     current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # Update the global filter if data exists.
+    # Update global filter if data exists.
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
