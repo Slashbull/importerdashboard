@@ -27,6 +27,7 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
     terms = vectorizer.get_feature_names_out()
     candidate_categories = []
     for i in range(num_clusters):
+        # Use the top 5 terms in each cluster as the candidate label
         top_terms = [terms[ind] for ind in order_centroids[i, :5]]
         label = " / ".join(top_terms)
         candidate_categories.append(label)
@@ -41,6 +42,7 @@ def classify_mark(mark: str, candidate_categories: list = None, threshold: int =
     Parameters:
         mark (str): The original Mark string.
         candidate_categories (list): Candidate product categories to match against.
+                                    If None, a default list is used.
         threshold (int): The minimum matching score (0-100) required to accept a match.
         
     Returns:
@@ -58,8 +60,9 @@ def classify_mark(mark: str, candidate_categories: list = None, threshold: int =
 def apply_filters(df: pd.DataFrame):
     """
     Applies global filters to the DataFrame with real-time feedback.
-    Each filter provides an "All" option by default. If no options are selected,
-    the filter defaults to the full list of unique values.
+    Each filter provides an "All" option by default. When only "All" is selected,
+    the full list of unique values is used automatically; if any additional values
+    are selected, "All" is automatically removed.
     
     Filters are applied for:
       - Consignee State
@@ -71,20 +74,26 @@ def apply_filters(df: pd.DataFrame):
       
     Returns:
       - The filtered DataFrame.
-      - The unit column (fixed as "Tons").
+      - The unit column (which is fixed as "Tons").
     """
     st.sidebar.header("🔍 Global Data Filters")
     
-    # Reset Filters Button: Clear filter keys and re-run the app.
+    # Reset Filters Button: Clear filter keys and rerun the app.
     if st.sidebar.button("Reset Filters"):
         for key in ["filter_state", "filter_month", "filter_year", "filter_consignee", "filter_exporter", "filter_product"]:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
-
+    
     def ensure_selection(selected, full_list):
-        """Return the full list if selection is empty."""
+        """If selection is empty, return the full list; if 'All' is combined with others, remove 'All'."""
         if not selected or len(selected) == 0:
+            return full_list
+        # If "All" is present along with other selections, remove "All"
+        if "All" in selected and len(selected) > 1:
+            selected.remove("All")
+        # If "All" is the only selection, use the full list
+        if "All" in selected and len(selected) == 1:
             return full_list
         return selected
 
@@ -95,8 +104,6 @@ def apply_filters(df: pd.DataFrame):
         selected_states = st.sidebar.multiselect(
             "📌 Select State:", options=state_options, default=["All"], key="filter_state"
         )
-        if "All" in selected_states:
-            selected_states = states
         selected_states = ensure_selection(selected_states, states)
     else:
         selected_states = []
@@ -108,8 +115,6 @@ def apply_filters(df: pd.DataFrame):
         selected_months = st.sidebar.multiselect(
             "📅 Select Month:", options=month_options, default=["All"], key="filter_month"
         )
-        if "All" in selected_months:
-            selected_months = months
         selected_months = ensure_selection(selected_months, months)
     else:
         selected_months = []
@@ -121,8 +126,6 @@ def apply_filters(df: pd.DataFrame):
         selected_years = st.sidebar.multiselect(
             "📆 Select Year:", options=year_options, default=["All"], key="filter_year"
         )
-        if "All" in selected_years:
-            selected_years = [str(y) for y in years]
         selected_years = ensure_selection(selected_years, [str(y) for y in years])
     else:
         selected_years = []
@@ -134,8 +137,6 @@ def apply_filters(df: pd.DataFrame):
         selected_consignees = st.sidebar.multiselect(
             "🏢 Select Consignee:", options=consignee_options, default=["All"], key="filter_consignee"
         )
-        if "All" in selected_consignees:
-            selected_consignees = consignees
         selected_consignees = ensure_selection(selected_consignees, consignees)
     else:
         selected_consignees = []
@@ -147,15 +148,13 @@ def apply_filters(df: pd.DataFrame):
         selected_exporters = st.sidebar.multiselect(
             "🚢 Select Exporter:", options=exporter_options, default=["All"], key="filter_exporter"
         )
-        if "All" in selected_exporters:
-            selected_exporters = exporters
         selected_exporters = ensure_selection(selected_exporters, exporters)
     else:
         selected_exporters = []
 
     # --- Filter by Product ---
     if "Mark" in df.columns:
-        # Create Product column if not present
+        # If the "Product" column is not present, generate it automatically.
         if "Product" not in df.columns:
             candidate_categories = generate_candidate_categories(df, num_clusters=5)
             df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
@@ -164,8 +163,6 @@ def apply_filters(df: pd.DataFrame):
         selected_products = st.sidebar.multiselect(
             "🔖 Select Product:", options=product_options, default=["All"], key="filter_product"
         )
-        if "All" in selected_products:
-            selected_products = products
         selected_products = ensure_selection(selected_products, products)
     else:
         selected_products = []
