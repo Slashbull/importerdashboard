@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from market_overview import market_overview_dashboard
 
 # ---- Core System Foundation ---- #
 
@@ -50,15 +51,14 @@ if tab_selection == "Upload Data":
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
 
-# ---- Market Overview Placeholder ---- #
+# ---- Market Overview Integration ---- #
 elif tab_selection == "Market Overview":
     if "uploaded_data" not in st.session_state:
         st.warning("⚠️ No data available. Please upload a dataset first.")
     else:
-        st.write("### 🚧 Market Overview Dashboard is under construction.")
-        st.info("Key metrics and trends will be displayed here.")
+        df = st.session_state["uploaded_data"]
+        market_overview_dashboard(df)
 
         # ---- Download Processed Data ---- #
-        df = st.session_state["uploaded_data"]
         csv = df.to_csv(index=False).encode('utf-8')
         st.sidebar.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
