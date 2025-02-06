@@ -4,11 +4,11 @@ import requests
 from io import StringIO
 import plotly.express as px
 
-# Import configuration and filtering
+# Import configuration and filters
 import config
 from filters import apply_filters
 
-# Import dashboard functions from other modules
+# Import dashboard modules
 from market_overview import market_overview_dashboard
 from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
@@ -21,7 +21,7 @@ from reporting_data_exports import reporting_data_exports
 # -----------------------------------------------------------------------------
 def authenticate_user():
     """
-    Render the login UI on the sidebar and authenticate using credentials from config.
+    Display a login form and validate credentials from config.
     """
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
@@ -40,20 +40,17 @@ def authenticate_user():
         st.stop()
 
 def logout_button():
-    """Render a logout button that clears session state and refreshes the app."""
+    """Display a logout button that clears the session and refreshes the app."""
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
         st.experimental_rerun()
 
 # -----------------------------------------------------------------------------
-# Data Preprocessing & Caching
+# Data Ingestion & Preprocessing
 # -----------------------------------------------------------------------------
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Preprocess the uploaded data:
-    - Remove commas and extra spaces from numeric columns.
-    - Convert 'Kgs' and 'Tons' columns to numeric.
-    - Return a dataframe with optimized dtypes.
+    Clean and convert numeric columns by removing commas and trimming spaces.
     """
     numeric_cols = ["Kgs", "Tons"]
     for col in numeric_cols:
@@ -65,9 +62,10 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
     """
-    Load CSV data using pandas with caching.
+    Load CSV data with caching.
     """
     try:
+        # Adjust the delimiter if your CSV is not comma-delimited.
         df = pd.read_csv(uploaded_file, low_memory=False)
     except Exception as e:
         st.error(f"🚨 Error processing CSV file: {e}")
@@ -76,20 +74,20 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 
 def upload_data():
     """
-    Handle data upload from CSV or Google Sheet, preprocess it,
-    and store both raw and filtered data in session_state.
+    Handle data upload from CSV or Google Sheets, preprocess it,
+    and store both the raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
     df = None
 
     if upload_option == "Upload CSV":
-        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload a CSV file containing import/export data.")
+        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload your CSV file containing your data.")
         if uploaded_file is not None:
             df = load_csv_data(uploaded_file)
     else:
         sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
-        sheet_name = config.DEFAULT_SHEET_NAME  # Use config for default sheet name
+        sheet_name = config.DEFAULT_SHEET_NAME
         if sheet_url and st.button("Load Google Sheet"):
             try:
                 sheet_id = sheet_url.split("/d/")[1].split("/")[0]
@@ -103,7 +101,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Apply global filters immediately after upload
+        # Immediately apply global filters
         filtered_df, unit_col = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
@@ -113,7 +111,7 @@ def upload_data():
 
 def display_data_preview(df: pd.DataFrame):
     """
-    Display a preview and summary of the uploaded data.
+    Display the first 50 rows and summary statistics of the data.
     """
     st.markdown("### 🔍 Data Preview (First 50 Rows)")
     st.dataframe(df.head(50))
@@ -122,21 +120,18 @@ def display_data_preview(df: pd.DataFrame):
 
 def get_current_data():
     """
-    Returns the filtered data if available; otherwise, returns the uploaded (raw) data.
+    Return the filtered data if available; otherwise, return the raw uploaded data.
     """
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 # -----------------------------------------------------------------------------
-# Custom CSS for Improved UI
+# Custom CSS for a Polished Look
 # -----------------------------------------------------------------------------
 def add_custom_css():
     custom_css = """
     <style>
         .main .block-container {
-            padding-top: 1rem;
-            padding-right: 2rem;
-            padding-left: 2rem;
-            padding-bottom: 1rem;
+            padding: 1rem 2rem;
         }
         h2 { color: #2E86C1; }
         h1 { color: #1B4F72; }
@@ -151,11 +146,11 @@ def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
 
-    # Authenticate user first
+    # Authenticate the user first
     authenticate_user()
     logout_button()
 
-    # Sidebar Navigation Tabs
+    # Sidebar navigation tabs
     tabs = [
         "Upload Data", 
         "Market Overview", 
@@ -168,12 +163,12 @@ def main():
     current_tab = st.sidebar.radio("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # If data is uploaded, display global filter panel (from filters.py)
+    # If data exists, show the global filter panel
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the appropriate page based on the selected tab
+    # Route to the selected dashboard page
     if current_tab == "Upload Data":
         df = upload_data()
         if "uploaded_data" in st.session_state:
