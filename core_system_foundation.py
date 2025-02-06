@@ -17,7 +17,7 @@ if not st.session_state["authenticated"]:
         if username == "admin" and password == "admin123":
             st.session_state["authenticated"] = True
             st.session_state["current_tab"] = "Market Overview"
-            st.experimental_set_query_params(tab="Market Overview")
+            st.query_params(tab="Market Overview")
         else:
             st.sidebar.error("🚨 Invalid Username or Password")
     st.stop()
