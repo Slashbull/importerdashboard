@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO
+import plotly.express as px
+
+# Import configuration and filtering
+import config
+from filters import apply_filters
 
 # Import dashboard functions from other modules
 from market_overview import market_overview_dashboard
@@ -16,8 +21,7 @@ from reporting_data_exports import reporting_data_exports
 # -----------------------------------------------------------------------------
 def authenticate_user():
     """
-    Render the login UI on the sidebar and authenticate using hard-coded credentials.
-    If the user is not authenticated, stop the app execution.
+    Render the login UI on the sidebar and authenticate using credentials from config.
     """
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
@@ -27,7 +31,7 @@ def authenticate_user():
         username = st.sidebar.text_input("👤 Username", key="login_username")
         password = st.sidebar.text_input("🔑 Password", type="password", key="login_password")
         if st.sidebar.button("🚀 Login"):
-            if username == "admin" and password == "admin123":
+            if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
                 st.session_state["current_tab"] = "Upload Data"
                 st.experimental_set_query_params(tab="Upload Data")
@@ -48,8 +52,8 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Preprocess the uploaded data:
     - Remove commas and extra spaces from numeric columns.
-    - Convert 'Kgs' and 'Tons' columns to numeric types.
-    - Use convert_dtypes() for overall type conversion.
+    - Convert 'Kgs' and 'Tons' columns to numeric.
+    - Return a dataframe with optimized dtypes.
     """
     numeric_cols = ["Kgs", "Tons"]
     for col in numeric_cols:
@@ -61,7 +65,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
     """
-    Load CSV data using pandas with caching for efficiency.
+    Load CSV data using pandas with caching.
     """
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
@@ -72,23 +76,22 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 
 def upload_data():
     """
-    Handle data upload from either a CSV file or a Google Sheet.
-    Preprocess the data and store it in the session state.
+    Handle data upload from CSV or Google Sheet, preprocess it,
+    and store both raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
     df = None
 
     if upload_option == "Upload CSV":
-        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload a CSV file containing import data.")
+        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload a CSV file containing import/export data.")
         if uploaded_file is not None:
             df = load_csv_data(uploaded_file)
     else:
         sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
-        sheet_name = "data"  # Fixed sheet name; adjust if needed
+        sheet_name = config.DEFAULT_SHEET_NAME  # Use config for default sheet name
         if sheet_url and st.button("Load Google Sheet"):
             try:
-                # Extract the Google Sheet ID from the URL
                 sheet_id = sheet_url.split("/d/")[1].split("/")[0]
                 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
                 response = requests.get(csv_url)
@@ -100,26 +103,54 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        st.success("✅ Data loaded successfully!")
+        # Apply global filters immediately after upload
+        filtered_df, unit_col = apply_filters(df)
+        st.session_state["filtered_data"] = filtered_df
+        st.success("✅ Data loaded and filtered successfully!")
     else:
         st.info("No data loaded yet. Please upload a file or provide a valid Google Sheet link.")
     return df
 
 def display_data_preview(df: pd.DataFrame):
     """
-    Display a preview of the uploaded data along with summary statistics.
+    Display a preview and summary of the uploaded data.
     """
     st.markdown("### 🔍 Data Preview (First 50 Rows)")
     st.dataframe(df.head(50))
     st.markdown("### 📊 Data Summary")
     st.write(df.describe(include="all"))
 
+def get_current_data():
+    """
+    Returns the filtered data if available; otherwise, returns the uploaded (raw) data.
+    """
+    return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
+
+# -----------------------------------------------------------------------------
+# Custom CSS for Improved UI
+# -----------------------------------------------------------------------------
+def add_custom_css():
+    custom_css = """
+    <style>
+        .main .block-container {
+            padding-top: 1rem;
+            padding-right: 2rem;
+            padding-left: 2rem;
+            padding-bottom: 1rem;
+        }
+        h2 { color: #2E86C1; }
+        h1 { color: #1B4F72; }
+    </style>
+    """
+    st.markdown(custom_css, unsafe_allow_html=True)
+
 # -----------------------------------------------------------------------------
 # Main Application & Navigation
 # -----------------------------------------------------------------------------
 def main():
-    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide")
-    
+    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
+    add_custom_css()
+
     # Authenticate user first
     authenticate_user()
     logout_button()
@@ -137,6 +168,11 @@ def main():
     current_tab = st.sidebar.radio("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
+    # If data is uploaded, display global filter panel (from filters.py)
+    if "uploaded_data" in st.session_state:
+        filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
+        st.session_state["filtered_data"] = filtered_df
+
     # Route to the appropriate page based on the selected tab
     if current_tab == "Upload Data":
         df = upload_data()
@@ -146,32 +182,32 @@ def main():
             st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv")
     elif current_tab == "Market Overview":
         try:
-            market_overview_dashboard()
+            market_overview_dashboard(get_current_data())
         except Exception as e:
             st.error(f"🚨 Error loading Market Overview Dashboard: {e}")
     elif current_tab == "Competitor Intelligence":
         try:
-            competitor_intelligence_dashboard()
+            competitor_intelligence_dashboard(get_current_data())
         except Exception as e:
             st.error(f"🚨 Error loading Competitor Intelligence Dashboard: {e}")
     elif current_tab == "Supplier Performance":
         try:
-            supplier_performance_dashboard()
+            supplier_performance_dashboard(get_current_data())
         except Exception as e:
             st.error(f"🚨 Error loading Supplier Performance Dashboard: {e}")
     elif current_tab == "State-Level Market Insights":
         try:
-            state_level_market_insights()
+            state_level_market_insights(get_current_data())
         except Exception as e:
             st.error(f"🚨 Error loading State-Level Market Insights Dashboard: {e}")
     elif current_tab == "AI-Based Alerts & Forecasting":
         try:
-            ai_based_alerts_forecasting()
+            ai_based_alerts_forecasting(get_current_data())
         except Exception as e:
             st.error(f"🚨 Error loading AI-Based Alerts & Forecasting Dashboard: {e}")
     elif current_tab == "Reporting & Data Exports":
         try:
-            reporting_data_exports()
+            reporting_data_exports(get_current_data())
         except Exception as e:
             st.error(f"🚨 Error loading Reporting & Data Exports Dashboard: {e}")
 
