@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import gspread
+import requests
 from market_overview import market_overview_dashboard
 
 # ---- Core System Foundation ---- #
@@ -45,11 +46,11 @@ if tab_selection == "Upload Data":
         sheet_name = "data"  # Fixed sheet name selection
         if sheet_url and st.button("Load Google Sheet"):
             try:
-                client = gspread.Client()
-                sheet = client.open_by_url(sheet_url)
-                worksheet = sheet.worksheet(sheet_name)
-                data = worksheet.get_all_values()
-                df = pd.DataFrame(data[1:], columns=data[0])  # Convert to DataFrame
+                sheet_id = sheet_url.split("/d/")[1].split("/")[0]
+                csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+                response = requests.get(csv_url)
+                response.raise_for_status()
+                df = pd.read_csv(pd.compat.StringIO(response.text))
                 st.session_state["uploaded_data"] = df
                 st.success(f"✅ Data loaded from sheet: {sheet_name}")
             except Exception as e:
