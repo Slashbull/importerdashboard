@@ -76,4 +76,10 @@ if "uploaded_data" in st.session_state:
     st.session_state["uploaded_data"].convert_dtypes()
     
     csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
+    if "uploaded_data" in st.session_state:
+    csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
+    if "csv_downloaded" not in st.session_state:
+        st.session_state["csv_downloaded"] = False
+    if not st.session_state["csv_downloaded"]:
+        if st.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv"):
+            st.session_state["csv_downloaded"] = True
