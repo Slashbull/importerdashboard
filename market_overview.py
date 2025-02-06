@@ -1,72 +1,36 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
 # ---- Market Overview Dashboard ---- #
-def market_overview_dashboard(df):
-    """Displays market trends and key insights."""
+def market_overview_dashboard():
     st.title("📊 Market Overview Dashboard")
-
-    st.markdown("""
-    This dashboard provides a comprehensive analysis of import trends, competitor insights, 
-    supplier performance, and state-wise analysis to support data-driven decision-making.
-    """)
     
-    if df is None or df.empty:
-        st.warning("⚠️ No data available. Please upload a dataset in the core system.")
+    if "uploaded_data" not in st.session_state:
+        st.warning("⚠️ No data available. Please upload a dataset first.")
         return
-
-    # ---- Sidebar Navigation ---- #
-    tabs = st.sidebar.radio("Select Analysis Section:", ["Key Metrics", "Monthly Trends", "Top Competitors", "Top Suppliers", "State-Wise Analysis"])
-
-    # ---- Key Metrics ---- #
-    if tabs == "Key Metrics":
-        total_imports = df["Quanity (Kgs)"].sum()
-        unique_suppliers = df["Exporter"].nunique()
-        unique_competitors = df["Consignee"].nunique()
-        top_state = df.groupby("Consignee State")["Quanity (Kgs)"].sum().idxmax() if not df.empty else "N/A"
-
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📦 Total Import Volume (Kgs)", f"{total_imports:,.2f}")
-        col2.metric("🏭 Unique Suppliers", unique_suppliers)
-        col3.metric("🏆 Unique Competitors", unique_competitors)
-        col4.metric("📍 Top State by Volume", top_state)
-
-    # ---- Monthly Trends ---- #
-    if tabs == "Monthly Trends" and "Month" in df.columns:
-        st.subheader("📅 Monthly Import Trends")
-        monthly_trends = df.groupby("Month")["Quanity (Kgs)"].sum().reset_index()
-        fig = px.line(monthly_trends, x="Month", y="Quanity (Kgs)", title="Monthly Import Trends", markers=True)
-        st.plotly_chart(fig, use_container_width=True)
-
-    # ---- Top 5 Competitors ---- #
-    if tabs == "Top Competitors" and "Consignee" in df.columns:
-        st.subheader("🏆 Top 5 Importing Competitors")
-        top_competitors = df.groupby("Consignee")["Quanity (Kgs)"].sum().reset_index()
-        top_competitors = top_competitors.nlargest(5, "Quanity (Kgs)")
-        fig = px.bar(top_competitors, x="Consignee", y="Quanity (Kgs)", title="Top 5 Importing Competitors", text_auto=True)
-        st.plotly_chart(fig, use_container_width=True)
-
-    # ---- Top 5 Suppliers ---- #
-    if tabs == "Top Suppliers" and "Exporter" in df.columns:
-        st.subheader("🏭 Top 5 Suppliers by Import Volume")
-        top_suppliers = df.groupby("Exporter")["Quanity (Kgs)"].sum().reset_index()
-        top_suppliers = top_suppliers.nlargest(5, "Quanity (Kgs)")
-        fig = px.bar(top_suppliers, x="Exporter", y="Quanity (Kgs)", title="Top 5 Suppliers", text_auto=True)
-        st.plotly_chart(fig, use_container_width=True)
-
-    # ---- State-Wise Analysis ---- #
-    if tabs == "State-Wise Analysis" and "Consignee State" in df.columns:
-        st.subheader("📍 State-Wise Import Trends")
-        state_imports = df.groupby("Consignee State")["Quanity (Kgs)"].sum().reset_index()
-        fig = px.choropleth(
-            state_imports,
-            locations="Consignee State",
-            locationmode="country names",
-            color="Quanity (Kgs)",
-            title="State-Wise Import Trends",
-            color_continuous_scale="Viridis"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-# Save file as market_overview.py
+    
+    df = st.session_state["uploaded_data"]
+    
+    st.markdown("### 📈 Key Market Insights")
+    
+    # Display basic statistics
+    st.write("#### Total Imports:", df["Kgs"].sum())
+    st.write("#### Number of Unique Consignees:", df["Consignee"].nunique())
+    st.write("#### Number of Unique Exporters:", df["Exporter"].nunique())
+    
+    # Show top 5 importers
+    st.markdown("### 🏆 Top 5 Consignees")
+    top_consignees = df.groupby("Consignee")["Kgs"].sum().sort_values(ascending=False).head(5)
+    st.bar_chart(top_consignees)
+    
+    # Show top 5 exporters
+    st.markdown("### 🌍 Top 5 Exporters")
+    top_exporters = df.groupby("Exporter")["Kgs"].sum().sort_values(ascending=False).head(5)
+    st.bar_chart(top_exporters)
+    
+    # Monthly Import Trends
+    st.markdown("### 📅 Monthly Import Trends")
+    monthly_trends = df.groupby("Month")["Kgs"].sum()
+    st.line_chart(monthly_trends)
+    
+    st.success("✅ Market Overview Dashboard Loaded Successfully!")
