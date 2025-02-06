@@ -39,9 +39,12 @@ if tab_selection == "Upload Data":
     if upload_option == "Upload CSV":
         uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"], help="Upload a CSV file containing import data.")
         if uploaded_file is not None:
-            df = pd.read_csv(uploaded_file, low_memory=False)
-            st.session_state["uploaded_data"] = df
-            st.success("✅ File uploaded successfully!")
+            try:
+                df = pd.read_csv(uploaded_file, low_memory=False)
+                st.session_state["uploaded_data"] = df
+                st.success("✅ File uploaded successfully!")
+            except Exception as e:
+                st.error(f"🚨 Error processing the CSV file: {e}")
 
     elif upload_option == "Google Sheet Link":
         sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
@@ -69,13 +72,22 @@ if tab_selection == "Upload Data":
     # ---- Data Handling for Large Datasets ---- #
     if "uploaded_data" in st.session_state:
         st.markdown("### 🔍 Data Preview (First 50 Rows)")
-        st.dataframe(st.session_state["uploaded_data"].head(50))  # Displaying only the first 50 rows for performance
+        try:
+            st.dataframe(st.session_state["uploaded_data"].head(50))  # Displaying only the first 50 rows for performance
+        except Exception as e:
+            st.error(f"🚨 Error displaying data preview: {e}")
         
         st.markdown("### 📊 Data Summary")
-        st.write(st.session_state["uploaded_data"].describe())
+        try:
+            st.write(st.session_state["uploaded_data"].describe())
+        except Exception as e:
+            st.error(f"🚨 Error generating data summary: {e}")
         
         # Optimize storage for large datasets
-        st.session_state["uploaded_data"] = st.session_state["uploaded_data"].convert_dtypes()
+        try:
+            st.session_state["uploaded_data"] = st.session_state["uploaded_data"].convert_dtypes()
+        except Exception as e:
+            st.error(f"🚨 Error optimizing data types: {e}")
         
         csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
         
@@ -83,8 +95,14 @@ if tab_selection == "Upload Data":
             st.session_state["csv_downloaded"] = False
         
         if not st.session_state["csv_downloaded"]:
-            if st.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv"):
-                st.session_state["csv_downloaded"] = True
+            try:
+                if st.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv"):
+                    st.session_state["csv_downloaded"] = True
+            except Exception as e:
+                st.error(f"🚨 Error with download button: {e}")
 
 elif tab_selection == "Market Overview":
-    market_overview_dashboard()
+    try:
+        market_overview_dashboard()
+    except Exception as e:
+        st.error(f"🚨 Error loading Market Overview Dashboard: {e}")
