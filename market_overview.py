@@ -31,19 +31,35 @@ def market_overview_dashboard(data: pd.DataFrame):
     # ---------------------------
     # Tab 1: Key Metrics
     # ---------------------------
-    with tab1:
-        # Calculate key metrics
-        total_imports = data["Tons"].sum()
-        unique_consignees = data["Consignee"].nunique()
-        unique_exporters = data["Exporter"].nunique()
-        avg_imports_per_consignee = total_imports / unique_consignees if unique_consignees > 0 else 0
+   # In the Key Metrics tab
+with tab1:
+    # Calculate key metrics
+    total_imports = data["Tons"].sum()
+    unique_consignees = data["Consignee"].nunique()
+    unique_exporters = data["Exporter"].nunique()
+    avg_imports_per_consignee = total_imports / unique_consignees if unique_consignees > 0 else 0
+    
+    # Calculate month-over-month growth (if applicable)
+    # Here we assume data for a single month is available; for more advanced comparisons,
+    # you might need to aggregate monthly data and compare with previous months.
+    # For demonstration, assume that if the data contains multiple months, we calculate growth.
+    monthly_data = data.groupby("Month")["Tons"].sum().reset_index()
+    if len(monthly_data) >= 2:
+        # Sort months as needed; here, we assume alphabetical order works for your data.
+        monthly_data = monthly_data.sort_values("Month")
+        # Simple percentage change calculation for the last two months
+        recent_growth = ((monthly_data["Tons"].iloc[-1] - monthly_data["Tons"].iloc[-2]) /
+                         monthly_data["Tons"].iloc[-2]) * 100
+    else:
+        recent_growth = 0
 
-        # Display metrics in a row of cards using columns
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Imports (Tons)", f"{total_imports:,.2f}")
-        col2.metric("Unique Consignees", unique_consignees)
-        col3.metric("Unique Exporters", unique_exporters)
-        col4.metric("Avg Tons per Consignee", f"{avg_imports_per_consignee:,.2f}")
+    # Display metrics using columns (cards)
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Total Imports (Tons)", f"{total_imports:,.2f}")
+    col2.metric("Unique Consignees", unique_consignees)
+    col3.metric("Unique Exporters", unique_exporters)
+    col4.metric("Avg Tons per Consignee", f"{avg_imports_per_consignee:,.2f}")
+    col5.metric("MoM Growth (%)", f"{recent_growth:,.2f}")
     
     # ---------------------------
     # Tab 2: Top Entities
