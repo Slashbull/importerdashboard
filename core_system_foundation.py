@@ -43,7 +43,7 @@ def logout_button():
     """Display a logout button that clears the session and refreshes the app."""
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()  # Use st.rerun() instead of st.experimental_rerun()
 
 # -----------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
