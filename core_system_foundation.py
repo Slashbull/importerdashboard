@@ -32,9 +32,11 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters using the new st.set_query_params API.
+    Update query parameters using st.set_query_params.
+    Each parameter value is converted to a list of strings as required by the API.
     """
-    st.set_query_params(**params)
+    new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
+    st.set_query_params(**new_params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
