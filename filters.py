@@ -15,7 +15,6 @@ def classify_mark(mark: str, threshold: int = 70) -> str:
     """
     if not isinstance(mark, str):
         return "Unknown"
-    mark_lower = mark.lower()
     # List of candidate product categories.
     categories = ["Safawi", "Sukkari", "Sugar", "Phoenix", "Unmanufactured"]
     # Use fuzzy matching to find the best match.
@@ -24,135 +23,99 @@ def classify_mark(mark: str, threshold: int = 70) -> str:
         return best_match[0]
     return "Other"
 
-def apply_filters(df: pd.DataFrame):
+def smart_apply_filters(df: pd.DataFrame):
     """
-    Applies global filters to the DataFrame with real-time feedback and displays an
-    active filters summary. If a user deselects all options for a filter, it defaults to "All".
+    Applies a smart, interconnected set of global filters to the DataFrame.
+    Each filter's options are updated dynamically based on selections in the other filters.
     
-    Filters are provided for:
-      - Consignee State
-      - Month
+    Available filters:
       - Year
+      - Month
+      - Consignee State
       - Consignee
       - Exporter
-      - Product (automatically classified from the "Mark" column)
+      - Product (derived from "Mark")
       
-    Each filter includes an "All" option by default. If "All" is selected or if the selection is empty,
-    the filter uses the full list of unique values.
-    
-    Returns:
+    The function returns:
       - The filtered DataFrame.
-      - The unit column (which is fixed as "Tons").
+      - The unit column (fixed as "Tons").
     """
-    st.sidebar.header("🔍 Global Data Filters")
+    st.sidebar.header("🔍 Global Data Filters (Smart)")
     
-    # Helper function: if selection is empty, return full list.
-    def ensure_selection(selected, full_list):
-        if not selected or len(selected) == 0:
-            return full_list
-        return selected
+    # Work on a copy of the DataFrame so the original data remains intact.
+    filtered_df = df.copy()
+    
+    # --- Step 0: Ensure the 'Product' column exists if "Mark" is present.
+    if "Mark" in filtered_df.columns and "Product" not in filtered_df.columns:
+        with st.spinner("Processing product categories..."):
+            filtered_df["Product"] = filtered_df["Mark"].apply(lambda x: classify_mark(x))
+    
+    # Helper function to create a dynamic multiselect widget.
+    def dynamic_multiselect(label: str, column: str, current_df: pd.DataFrame):
+        if column not in current_df.columns:
+            return None, None
+        # Get sorted unique options available in the current filtered data.
+        options = sorted(current_df[column].dropna().unique().tolist())
+        # Include an "All" option at the beginning.
+        options_with_all = ["All"] + options
+        # Let the user choose; default selection is "All".
+        selected = st.sidebar.multiselect(f"📌 {label}:", options=options_with_all, default=["All"])
+        # If "All" is selected or nothing is selected, return the complete list.
+        if "All" in selected or not selected:
+            return options, "All"
+        return selected, None
 
-    # Filter by Consignee State
-    if "Consignee State" in df.columns:
-        states = sorted(df["Consignee State"].dropna().unique().tolist())
-        state_options = ["All"] + states
-        selected_states = st.sidebar.multiselect("📌 Select State:", options=state_options, default=["All"])
-        if "All" in selected_states:
-            selected_states = states
-        selected_states = ensure_selection(selected_states, states)
-    else:
-        selected_states = []
+    # --- Step 1: Filter by Year.
+    selected_years, _ = dynamic_multiselect("Select Year", "Year", filtered_df)
+    if selected_years is not None:
+        filtered_df = filtered_df[filtered_df["Year"].isin(selected_years)]
     
-    # Filter by Month
-    if "Month" in df.columns:
-        months = sorted(df["Month"].dropna().unique().tolist())
-        month_options = ["All"] + months
-        selected_months = st.sidebar.multiselect("📅 Select Month:", options=month_options, default=["All"])
-        if "All" in selected_months:
-            selected_months = months
-        selected_months = ensure_selection(selected_months, months)
-    else:
-        selected_months = []
+    # --- Step 2: Filter by Month.
+    selected_months, _ = dynamic_multiselect("Select Month", "Month", filtered_df)
+    if selected_months is not None:
+        filtered_df = filtered_df[filtered_df["Month"].isin(selected_months)]
     
-    # Filter by Year
-    if "Year" in df.columns:
-        years = sorted(df["Year"].dropna().unique().tolist())
-        year_options = ["All"] + years
-        selected_years = st.sidebar.multiselect("📆 Select Year:", options=year_options, default=["All"])
-        if "All" in selected_years:
-            selected_years = years
-        selected_years = ensure_selection(selected_years, years)
-    else:
-        selected_years = []
+    # --- Step 3: Filter by Consignee State.
+    selected_states, _ = dynamic_multiselect("Select Consignee State", "Consignee State", filtered_df)
+    if selected_states is not None:
+        filtered_df = filtered_df[filtered_df["Consignee State"].isin(selected_states)]
     
-    # Filter by Consignee
-    if "Consignee" in df.columns:
-        consignees = sorted(df["Consignee"].dropna().unique().tolist())
-        consignee_options = ["All"] + consignees
-        selected_consignees = st.sidebar.multiselect("🏢 Select Consignee:", options=consignee_options, default=["All"])
-        if "All" in selected_consignees:
-            selected_consignees = consignees
-        selected_consignees = ensure_selection(selected_consignees, consignees)
-    else:
-        selected_consignees = []
+    # --- Step 4: Filter by Consignee.
+    selected_consignees, _ = dynamic_multiselect("Select Consignee", "Consignee", filtered_df)
+    if selected_consignees is not None:
+        filtered_df = filtered_df[filtered_df["Consignee"].isin(selected_consignees)]
     
-    # Filter by Exporter
-    if "Exporter" in df.columns:
-        exporters = sorted(df["Exporter"].dropna().unique().tolist())
-        exporter_options = ["All"] + exporters
-        selected_exporters = st.sidebar.multiselect("🚢 Select Exporter:", options=exporter_options, default=["All"])
-        if "All" in selected_exporters:
-            selected_exporters = exporters
-        selected_exporters = ensure_selection(selected_exporters, exporters)
-    else:
-        selected_exporters = []
+    # --- Step 5: Filter by Exporter.
+    selected_exporters, _ = dynamic_multiselect("Select Exporter", "Exporter", filtered_df)
+    if selected_exporters is not None:
+        filtered_df = filtered_df[filtered_df["Exporter"].isin(selected_exporters)]
     
-    # Create and filter by Product using fuzzy matching on "Mark"
-    if "Mark" in df.columns:
-        if "Product" not in df.columns:
-            df["Product"] = df["Mark"].apply(lambda x: classify_mark(x))
-        products = sorted(df["Product"].dropna().unique().tolist())
-        product_options = ["All"] + products
-        selected_products = st.sidebar.multiselect("🔖 Select Product:", options=product_options, default=["All"])
-        if "All" in selected_products:
-            selected_products = products
-        selected_products = ensure_selection(selected_products, products)
-    else:
-        selected_products = []
+    # --- Step 6: Filter by Product.
+    selected_products, _ = dynamic_multiselect("Select Product", "Product", filtered_df)
+    if selected_products is not None:
+        filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
     
-    # We use only the Tons column for analysis.
+    # Ensure that the unit column ("Tons") is converted to numeric.
     unit_column = "Tons"
-    if unit_column in df.columns:
-        df[unit_column] = pd.to_numeric(df[unit_column], errors='coerce')
+    if unit_column in filtered_df.columns:
+        filtered_df[unit_column] = pd.to_numeric(filtered_df[unit_column], errors='coerce')
     
-    # Apply filters with a real-time spinner
-    with st.spinner("Applying filters..."):
-        filtered_df = df.copy()
-        if "Consignee State" in df.columns:
-            filtered_df = filtered_df[filtered_df["Consignee State"].isin(selected_states)]
-        if "Month" in df.columns:
-            filtered_df = filtered_df[filtered_df["Month"].isin(selected_months)]
-        if "Year" in df.columns:
-            filtered_df = filtered_df[filtered_df["Year"].isin(selected_years)]
-        if "Consignee" in df.columns:
-            filtered_df = filtered_df[filtered_df["Consignee"].isin(selected_consignees)]
-        if "Exporter" in df.columns:
-            filtered_df = filtered_df[filtered_df["Exporter"].isin(selected_exporters)]
-        if "Product" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
-    
-    # Display an active filters summary in the sidebar
+    # --- Active Filters Summary ---
     active_filters = {
-        "State": selected_states,
-        "Month": selected_months,
-        "Year": selected_years,
-        "Consignee": selected_consignees,
-        "Exporter": selected_exporters,
-        "Product": selected_products,
+        "Year": selected_years if selected_years is not None else "N/A",
+        "Month": selected_months if selected_months is not None else "N/A",
+        "Consignee State": selected_states if selected_states is not None else "N/A",
+        "Consignee": selected_consignees if selected_consignees is not None else "N/A",
+        "Exporter": selected_exporters if selected_exporters is not None else "N/A",
+        "Product": selected_products if selected_products is not None else "N/A",
     }
-    summary_text = "Active Filters:\n\n"
+    
+    summary_text = "### Active Filters\n"
     for key, value in active_filters.items():
-        summary_text += f"- **{key}**: {', '.join(map(str, value))}\n"
+        if isinstance(value, list):
+            summary_text += f"- **{key}**: {', '.join(map(str, value))}\n"
+        else:
+            summary_text += f"- **{key}**: {value}\n"
     st.sidebar.markdown(summary_text)
-
+    
     return filtered_df, unit_column
