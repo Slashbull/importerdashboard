@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import hashlib
+from market_overview import market_overview_dashboard
 
 # ---- Core System Foundation ---- #
 
@@ -95,11 +96,14 @@ if df is not None:
         st.write(f"- **Columns:** {', '.join(df.columns)}")
         st.write(f"- **Top 3 Consignees by Quantity (Kgs):**")
         st.write(df.groupby("Consignee")["Quanity (Kgs)"].sum().nlargest(3))
+
+        # ---- Navigate to Market Overview ---- #
+        if st.button("📊 Go to Market Overview Dashboard"):
+            market_overview_dashboard(df)
+            st.stop()
         
     except Exception as e:
         st.error(f"🚨 Error processing file: {e}")
 
 # Logout Button
 st.sidebar.button("🔓 Logout", on_click=logout)
-
-# Save file as core_system_foundation.py
