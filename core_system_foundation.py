@@ -15,14 +15,14 @@ if not st.session_state["authenticated"]:
         if username == "admin" and password == "admin123":
             st.session_state["authenticated"] = True
             st.session_state["current_tab"] = "Market Overview"
-    st.experimental_set_query_params(tab="Market Overview")
-            else:
+            st.experimental_set_query_params(tab="Market Overview")
+        else:
             st.sidebar.error("🚨 Invalid Username or Password")
     st.stop()
 
 st.sidebar.success("✅ Logged in")
 tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview"])
-st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False}))
+st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
 
 # ---- Upload Data Page ---- #
 if tab_selection == "Upload Data":
@@ -54,7 +54,7 @@ if tab_selection == "Upload Data":
 elif tab_selection == "Market Overview":
     if "uploaded_data" not in st.session_state:
         st.warning("⚠️ No data available. Please upload a dataset first.")
-        else:
+    else:
         st.write("### 🚧 Market Overview Dashboard is under construction.")
         st.info("Key metrics and trends will be displayed here.")
 
