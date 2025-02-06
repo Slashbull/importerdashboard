@@ -5,17 +5,16 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 
 # -----------------------------------------------------------------------------
-# Candidate Categories Generation (Cached)
+# Automatic Candidate Categories Generation
 # -----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
 def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> list:
     """
-    Automatically generate candidate product categories from the 'Mark' column
-    using TF‑IDF vectorization and K‑Means clustering.
+    Automatically generate candidate product categories from the 'Mark' column using TF‑IDF and K‑Means clustering.
     
     Parameters:
       - df: DataFrame containing a 'Mark' column.
-      - num_clusters: Number of clusters (candidate categories) to form.
+      - num_clusters: Number of clusters to form.
     
     Returns:
       A list of candidate category labels.
@@ -32,7 +31,6 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
     terms = vectorizer.get_feature_names_out()
     candidate_categories = []
     for i in range(num_clusters):
-        # Use the top 5 terms in each cluster as the candidate label
         top_terms = [terms[ind] for ind in order_centroids[i, :5]]
         label = " / ".join(top_terms)
         candidate_categories.append(label)
@@ -44,20 +42,19 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
 @st.cache_data(show_spinner=False)
 def classify_mark(mark: str, candidate_categories: list = None, threshold: int = 70) -> str:
     """
-    Classify the long 'Mark' string into a simplified product category using fuzzy matching.
+    Classify the 'Mark' string into a simplified product category using fuzzy matching.
     
     Parameters:
-        mark (str): The original Mark string.
-        candidate_categories (list): Candidate product categories to match against. If None, a default list is used.
-        threshold (int): The minimum matching score (0-100) required to accept a match.
-        
+      - mark (str): The original Mark string.
+      - candidate_categories (list): Candidate categories to match against. If None, a default list is used.
+      - threshold (int): Minimum matching score required.
+    
     Returns:
-        A simplified product category or "Other" if no match meets the threshold.
+      A simplified product category or "Other".
     """
     if not isinstance(mark, str):
         return "Unknown"
     if candidate_categories is None:
-        # Fallback default if no candidate categories provided.
         candidate_categories = ["Safawi", "Sukkari", "Sugar", "Phoenix", "Unmanufactured"]
     best_match = process.extractOne(mark, candidate_categories, scorer=fuzz.token_set_ratio)
     if best_match and best_match[1] >= threshold:
@@ -70,34 +67,34 @@ def classify_mark(mark: str, candidate_categories: list = None, threshold: int =
 def apply_filters(df: pd.DataFrame):
     """
     Applies global filters to the DataFrame with real-time feedback.
-    Each filter provides an "All" option by default, and if no options are
-    selected, the full list of unique values is used automatically.
+    Each filter provides an "All" option by default. If no option is selected,
+    the filter defaults to the full list of unique values.
     
-    Filters are applied for:
+    Filters include:
       - Consignee State
       - Month
       - Year
       - Consignee
       - Exporter
-      - Product (automatically classified from the "Mark" column)
-      
+      - Product (derived from the "Mark" column)
+    
     Returns:
       - The filtered DataFrame.
       - The unit column (fixed as "Tons").
     """
     st.sidebar.header("🔍 Global Data Filters")
     
-    # Add a reset button to revert filters to default values
+    # Reset button to reload default filters
     if st.sidebar.button("Reset Filters"):
         st.rerun()
 
     def ensure_selection(selected, full_list):
-        """Return the full list if selection is empty."""
+        """Return full list if selection is empty."""
         if not selected or len(selected) == 0:
             return full_list
         return selected
 
-    # Use expanders to collapse each filter group for a cleaner UI
+    # --- Filter by Consignee State ---
     with st.sidebar.expander("Filter by Consignee State", expanded=True):
         if "Consignee State" in df.columns:
             states = sorted(df["Consignee State"].dropna().unique().tolist())
@@ -109,6 +106,7 @@ def apply_filters(df: pd.DataFrame):
         else:
             selected_states = []
 
+    # --- Filter by Month ---
     with st.sidebar.expander("Filter by Month", expanded=True):
         if "Month" in df.columns:
             months = sorted(df["Month"].dropna().unique().tolist())
@@ -120,6 +118,7 @@ def apply_filters(df: pd.DataFrame):
         else:
             selected_months = []
 
+    # --- Filter by Year ---
     with st.sidebar.expander("Filter by Year", expanded=True):
         if "Year" in df.columns:
             years = sorted(df["Year"].dropna().unique().tolist())
@@ -131,6 +130,7 @@ def apply_filters(df: pd.DataFrame):
         else:
             selected_years = []
 
+    # --- Filter by Consignee ---
     with st.sidebar.expander("Filter by Consignee", expanded=True):
         if "Consignee" in df.columns:
             consignees = sorted(df["Consignee"].dropna().unique().tolist())
@@ -142,6 +142,7 @@ def apply_filters(df: pd.DataFrame):
         else:
             selected_consignees = []
 
+    # --- Filter by Exporter ---
     with st.sidebar.expander("Filter by Exporter", expanded=True):
         if "Exporter" in df.columns:
             exporters = sorted(df["Exporter"].dropna().unique().tolist())
@@ -153,9 +154,9 @@ def apply_filters(df: pd.DataFrame):
         else:
             selected_exporters = []
 
+    # --- Filter by Product (derived from "Mark") ---
     with st.sidebar.expander("Filter by Product", expanded=True):
         if "Mark" in df.columns:
-            # If the "Product" column does not exist, generate it using automatic candidate generation.
             if "Product" not in df.columns:
                 candidate_categories = generate_candidate_categories(df, num_clusters=5)
                 df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
@@ -172,8 +173,8 @@ def apply_filters(df: pd.DataFrame):
     unit_column = "Tons"
     if unit_column in df.columns:
         df[unit_column] = pd.to_numeric(df[unit_column], errors='coerce')
-    
-    # Apply filters with a loading spinner
+
+    # Apply filters with a spinner
     with st.spinner("Applying filters..."):
         filtered_df = df.copy()
         if "Consignee State" in df.columns:
@@ -188,5 +189,5 @@ def apply_filters(df: pd.DataFrame):
             filtered_df = filtered_df[filtered_df["Exporter"].isin(selected_exporters)]
         if "Product" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
-    
+
     return filtered_df, unit_column
