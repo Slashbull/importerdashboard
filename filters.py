@@ -67,22 +67,25 @@ def classify_mark(mark: str, candidate_categories: list = None, threshold: int =
 # -----------------------------------------------------------------------------
 def apply_filters(df: pd.DataFrame):
     """
-    Applies global filters to the DataFrame with real-time, cascading feedback.
+    Applies global filters to the DataFrame with cascading feedback.
     Each filter is presented in a collapsible expander and provides an "All" option.
-    The available options for each filter are computed based on the full dataset.
     If no selection is made (or "All" is selected), that dimension is not used to restrict the data.
+    
+    Filters include:
+      - Consignee State
+      - Month
+      - Year
+      - Consignee
+      - Exporter
+      - Product (derived from the "Mark" column)
     
     Returns:
       - The filtered DataFrame.
       - The unit column (fixed as "Tons").
     """
     st.sidebar.header("🔍 Global Data Filters")
-    
-    # Place the reset button once at the top of the sidebar.
-    if st.sidebar.button("Reset Filters", key="unique_reset_filters"):
-        st.rerun()
 
-    # A helper function to return the full list if selection is empty or contains "All"
+    # Helper function to ensure full selection if empty or "All" is selected.
     def ensure_selection(selected, full_list):
         if not selected or "All" in selected:
             return full_list
@@ -95,7 +98,7 @@ def apply_filters(df: pd.DataFrame):
     full_consignees = sorted(df["Consignee"].dropna().unique().tolist()) if "Consignee" in df.columns else []
     full_exporters = sorted(df["Exporter"].dropna().unique().tolist()) if "Exporter" in df.columns else []
     
-    # For product, ensure the "Product" column exists.
+    # For product classification, ensure the "Product" column exists.
     if "Mark" in df.columns and "Product" not in df.columns:
         candidate_categories = generate_candidate_categories(df, num_clusters=5)
         df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
@@ -141,7 +144,7 @@ def apply_filters(df: pd.DataFrame):
         "Product": selected_products,
     }
 
-    # Cascading filtering: apply each filter sequentially.
+    # Apply cascading filtering: start with the full DataFrame and narrow down based on each filter.
     filtered_df = df.copy()
     for col, selection in filter_criteria.items():
         if col in df.columns:
