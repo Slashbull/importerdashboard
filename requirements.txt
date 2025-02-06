@@ -5,3 +5,4 @@ plotly
 pdfkit
 python-dotenv
 rapidfuzz
+scipy
