@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters.
+    Update query parameters using st.set_query_params.
     Each parameter value is wrapped in a list if it isn’t already.
     Uses st.set_query_params if available; otherwise, falls back to st.experimental_set_query_params.
     """
@@ -58,7 +58,7 @@ def authenticate_user():
         st.sidebar.title("🔒 Login")
         username = st.sidebar.text_input("👤 Username", key="login_username", help="Enter your username.")
         password = st.sidebar.text_input("🔑 Password", type="password", key="login_password", help="Enter your password.")
-        if st.sidebar.button("🚀 Login"):
+        if st.sidebar.button("🚀 Login", key="login_button"):
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
                 st.session_state["current_tab"] = "Upload Data"
@@ -73,9 +73,9 @@ def logout_button():
     """
     Display a logout button that clears the session and refreshes the app.
     """
-    if st.sidebar.button("🔓 Logout"):
+    if st.sidebar.button("🔓 Logout", key="logout_button"):
         st.session_state.clear()
-        st.rerun()
+        st.rerun()  # Refresh the app
 
 # -----------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
@@ -108,20 +108,20 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both the raw and filtered data in session_state.
+    and store both raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
-    upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
+    upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0, key="upload_option")
     df = None
 
     if upload_option == "Upload CSV":
-        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload your CSV file containing your data.")
+        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload your CSV file containing your data.", key="csv_uploader")
         if uploaded_file is not None:
             df = load_csv_data(uploaded_file)
     else:
-        sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
+        sheet_url = st.text_input("🔗 Enter Google Sheet Link:", key="sheet_url")
         sheet_name = config.DEFAULT_SHEET_NAME
-        if sheet_url and st.button("Load Google Sheet"):
+        if sheet_url and st.button("Load Google Sheet", key="load_sheet"):
             try:
                 sheet_id = sheet_url.split("/d/")[1].split("/")[0]
                 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
@@ -209,7 +209,7 @@ def main():
         "AI-Based Alerts & Forecasting", 
         "Reporting & Data Exports"
     ]
-    current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
+    current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")), key="nav_select")
     st.session_state["current_tab"] = current_tab
 
     # Update global filter if data exists.
@@ -224,7 +224,7 @@ def main():
             if "uploaded_data" in st.session_state:
                 display_data_preview(st.session_state["uploaded_data"])
                 csv_data = st.session_state["uploaded_data"].to_csv(index=False).encode("utf-8")
-                st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv")
+                st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv", key="download_csv")
         elif current_tab == "Market Overview":
             market_overview_dashboard(get_current_data())
         elif current_tab == "Competitor Intelligence":
