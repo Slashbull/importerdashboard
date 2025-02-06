@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import hashlib
-from market_overview import market_overview_dashboard
 
 # ---- Core System Foundation ---- #
 
@@ -33,14 +32,14 @@ def login():
         if username in USERS and USERS[username] == password:
             st.session_state["authenticated"] = True
             st.success("✅ Login successful!")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("🚨 Invalid Username or Password")
 
 def logout():
     """Logs out the user."""
     st.session_state["authenticated"] = False
-    st.rerun()
+    st.experimental_rerun()
 
 if not st.session_state["authenticated"]:
     login()
@@ -64,7 +63,7 @@ if tab_selection == "Upload Data":
             st.session_state["uploaded_data"] = df
             st.success("✅ File uploaded successfully! Redirecting...")
             st.session_state["current_tab"] = "Market Overview"
-            st.rerun()
+            st.experimental_rerun()
     
     elif upload_option == "Google Sheet Link":
         sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
@@ -77,18 +76,19 @@ if tab_selection == "Upload Data":
                 st.session_state["uploaded_data"] = df
                 st.success(f"✅ Data loaded from sheet: {sheet_name}. Redirecting...")
                 st.session_state["current_tab"] = "Market Overview"
-                st.rerun()
+                st.experimental_rerun()
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
 
-# ---- Market Overview Page ---- #
+# ---- Market Overview Placeholder ---- #
 elif tab_selection == "Market Overview":
     if "uploaded_data" not in st.session_state:
         st.warning("⚠️ No data available. Please upload a dataset first.")
     else:
-        df = st.session_state["uploaded_data"]
-        market_overview_dashboard(df)
-        
+        st.write("### 🚧 Market Overview Dashboard is under construction.")
+        st.info("Key metrics and trends will be displayed here.")
+
         # ---- Download Processed Data ---- #
+        df = st.session_state["uploaded_data"]
         csv = df.loc[:, ~df.columns.str.contains('^Unnamed')].to_csv(index=False).encode('utf-8')
         st.sidebar.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
