@@ -68,7 +68,7 @@ def apply_filters(df: pd.DataFrame):
     unit_toggle = st.sidebar.radio("⚖️ Select Unit:", ("Kgs", "Tons"))
     unit_column = "Kgs" if unit_toggle == "Kgs" else "Tons"
     
-    # Apply filters based on selections
+    # Apply filters to the data
     filtered_df = df.copy()
     if "Consignee State" in df.columns:
         filtered_df = filtered_df[filtered_df["Consignee State"].isin(selected_state)]
@@ -83,7 +83,7 @@ def apply_filters(df: pd.DataFrame):
     if "Mark" in df.columns:
         filtered_df = filtered_df[filtered_df["Mark"].isin(selected_mark)]
     
-    # Convert the selected unit column to numeric
+    # Convert selected unit column to numeric
     if unit_column in filtered_df.columns:
         filtered_df[unit_column] = pd.to_numeric(filtered_df[unit_column], errors='coerce')
     
