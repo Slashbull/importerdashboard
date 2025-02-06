@@ -105,11 +105,11 @@ def state_level_market_insights(data: pd.DataFrame):
             st.info("Please select at least one state for detailed analysis.")
 
     # ---------------------------
-    # Tab 3: Growth Analysis – Period-over-Period Change
+    # Tab 3: Growth Analysis – Enhanced Visualization
     # ---------------------------
     with tab_growth:
         st.subheader("Growth Analysis by Period")
-        # Create a pivot table: rows = State, columns = Period, values = Tons
+        # Create a pivot table: rows = Consignee State, columns = Period, values = Tons
         pivot_table = data.pivot_table(
             index="Consignee State",
             columns="Period",
@@ -117,24 +117,40 @@ def state_level_market_insights(data: pd.DataFrame):
             aggfunc="sum",
             fill_value=0
         )
-        # Calculate period-over-period percentage changes
+        # Calculate period-over-period percentage changes (growth)
         growth_pct = pivot_table.pct_change(axis=1) * 100
         growth_pct = growth_pct.round(2)
-        st.markdown("#### Period-over-Period Percentage Change (%)")
+
+        st.markdown("#### Period-over-Period Percentage Change (%) (Table)")
         st.dataframe(growth_pct)
-        
-        # Additionally, calculate the average growth for each state and display as a bar chart.
+
+        # Create an interactive heatmap of the growth percentages
+        st.markdown("#### Growth Percentage Heatmap")
+        fig_heat = px.imshow(
+            growth_pct,
+            labels=dict(x="Period", y="Consignee State", color="Growth (%)"),
+            x=growth_pct.columns,
+            y=growth_pct.index,
+            color_continuous_scale="RdYlGn",
+            aspect="auto",
+            title="Heatmap of Period-over-Period Growth (%)"
+        )
+        st.plotly_chart(fig_heat, use_container_width=True)
+
+        # Calculate the average growth per state and display it as a bar chart
         avg_growth = growth_pct.mean(axis=1).reset_index()
         avg_growth.columns = ["Consignee State", "Average Growth (%)"]
-        fig_growth = px.bar(
+        st.markdown("#### Average Period-over-Period Growth by State")
+        fig_avg = px.bar(
             avg_growth,
             x="Consignee State",
             y="Average Growth (%)",
-            title="Average Period-over-Period Growth by State",
+            title="Average Growth by State",
             text_auto=True,
-            color="Average Growth (%)"
+            color="Average Growth (%)",
+            color_continuous_scale="RdYlGn"
         )
-        st.plotly_chart(fig_growth, use_container_width=True)
+        st.plotly_chart(fig_avg, use_container_width=True)
 
     # ---------------------------
     # Tab 4: Detailed Analysis – Pivot Table View
