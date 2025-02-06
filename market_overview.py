@@ -31,7 +31,7 @@ def market_overview_dashboard(data: pd.DataFrame):
     # ---------------------------
     # Tab 1: Key Metrics
     # ---------------------------
-   # In the Key Metrics tab
+# In the Key Metrics tab
 with tab1:
     # Calculate key metrics
     total_imports = data["Tons"].sum()
@@ -59,8 +59,8 @@ with tab1:
     col2.metric("Unique Consignees", unique_consignees)
     col3.metric("Unique Exporters", unique_exporters)
     col4.metric("Avg Tons per Consignee", f"{avg_imports_per_consignee:,.2f}")
-    col5.metric("MoM Growth (%)", f"{recent_growth:,.2f}")
-    
+    col5.metric("MoM Growth (%)", f"{recent_growth:,.2f}"
+
     # ---------------------------
     # Tab 2: Top Entities
     # ---------------------------
