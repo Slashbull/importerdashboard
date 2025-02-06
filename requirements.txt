@@ -7,4 +7,4 @@ python-dotenv
 rapidfuzz
 scipy
 scikit-learn
-
+packing
