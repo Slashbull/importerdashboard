@@ -53,7 +53,7 @@ def smart_apply_filters(df: pd.DataFrame):
     # Helper function to create a dynamic multiselect widget.
     def dynamic_multiselect(label: str, column: str, current_df: pd.DataFrame):
         if column not in current_df.columns:
-            return None, None
+            return None
         # Get sorted unique options available in the current filtered data.
         options = sorted(current_df[column].dropna().unique().tolist())
         # Include an "All" option at the beginning.
@@ -62,36 +62,36 @@ def smart_apply_filters(df: pd.DataFrame):
         selected = st.sidebar.multiselect(f"📌 {label}:", options=options_with_all, default=["All"])
         # If "All" is selected or nothing is selected, return the complete list.
         if "All" in selected or not selected:
-            return options, "All"
-        return selected, None
+            return options
+        return selected
 
     # --- Step 1: Filter by Year.
-    selected_years, _ = dynamic_multiselect("Select Year", "Year", filtered_df)
+    selected_years = dynamic_multiselect("Select Year", "Year", filtered_df)
     if selected_years is not None:
         filtered_df = filtered_df[filtered_df["Year"].isin(selected_years)]
     
     # --- Step 2: Filter by Month.
-    selected_months, _ = dynamic_multiselect("Select Month", "Month", filtered_df)
+    selected_months = dynamic_multiselect("Select Month", "Month", filtered_df)
     if selected_months is not None:
         filtered_df = filtered_df[filtered_df["Month"].isin(selected_months)]
     
     # --- Step 3: Filter by Consignee State.
-    selected_states, _ = dynamic_multiselect("Select Consignee State", "Consignee State", filtered_df)
+    selected_states = dynamic_multiselect("Select Consignee State", "Consignee State", filtered_df)
     if selected_states is not None:
         filtered_df = filtered_df[filtered_df["Consignee State"].isin(selected_states)]
     
     # --- Step 4: Filter by Consignee.
-    selected_consignees, _ = dynamic_multiselect("Select Consignee", "Consignee", filtered_df)
+    selected_consignees = dynamic_multiselect("Select Consignee", "Consignee", filtered_df)
     if selected_consignees is not None:
         filtered_df = filtered_df[filtered_df["Consignee"].isin(selected_consignees)]
     
     # --- Step 5: Filter by Exporter.
-    selected_exporters, _ = dynamic_multiselect("Select Exporter", "Exporter", filtered_df)
+    selected_exporters = dynamic_multiselect("Select Exporter", "Exporter", filtered_df)
     if selected_exporters is not None:
         filtered_df = filtered_df[filtered_df["Exporter"].isin(selected_exporters)]
     
     # --- Step 6: Filter by Product.
-    selected_products, _ = dynamic_multiselect("Select Product", "Product", filtered_df)
+    selected_products = dynamic_multiselect("Select Product", "Product", filtered_df)
     if selected_products is not None:
         filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
     
@@ -99,23 +99,5 @@ def smart_apply_filters(df: pd.DataFrame):
     unit_column = "Tons"
     if unit_column in filtered_df.columns:
         filtered_df[unit_column] = pd.to_numeric(filtered_df[unit_column], errors='coerce')
-    
-    # --- Active Filters Summary ---
-    active_filters = {
-        "Year": selected_years if selected_years is not None else "N/A",
-        "Month": selected_months if selected_months is not None else "N/A",
-        "Consignee State": selected_states if selected_states is not None else "N/A",
-        "Consignee": selected_consignees if selected_consignees is not None else "N/A",
-        "Exporter": selected_exporters if selected_exporters is not None else "N/A",
-        "Product": selected_products if selected_products is not None else "N/A",
-    }
-    
-    summary_text = "### Active Filters\n"
-    for key, value in active_filters.items():
-        if isinstance(value, list):
-            summary_text += f"- **{key}**: {', '.join(map(str, value))}\n"
-        else:
-            summary_text += f"- **{key}**: {value}\n"
-    st.sidebar.markdown(summary_text)
     
     return filtered_df, unit_column
