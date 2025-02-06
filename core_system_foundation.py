@@ -175,20 +175,10 @@ def add_custom_css():
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-def display_header():
-    """
-    Display a persistent header with the application title and current tab breadcrumb.
-    """
-    current_tab = st.session_state.get("current_tab", "Upload Data")
-    st.markdown(f"<header><h1>Import/Export Analytics Dashboard</h1><p>Current View: {current_tab}</p></header>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # Main Application & Navigation
 # -----------------------------------------------------------------------------
-def main():
-    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
-    add_custom_css()
-    display_header()
 
     # Authenticate user
     authenticate_user()
