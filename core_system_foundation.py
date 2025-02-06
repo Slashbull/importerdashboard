@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import gspread
 from market_overview import market_overview_dashboard
 
 # ---- Core System Foundation ---- #
@@ -31,6 +32,7 @@ if tab_selection == "Upload Data":
     
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"))
     df = None
+    
     if upload_option == "Upload CSV":
         uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"], help="Upload a CSV file containing import data.")
         if uploaded_file is not None:
@@ -40,12 +42,14 @@ if tab_selection == "Upload Data":
     
     elif upload_option == "Google Sheet Link":
         sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
-        sheet_name = st.text_input("📑 Enter Sheet Name:")
-        if sheet_url and sheet_name and st.button("Load Google Sheet"):
+        sheet_name = "data"  # Fixed sheet name selection
+        if sheet_url and st.button("Load Google Sheet"):
             try:
-                sheet_id = sheet_url.split("/d/")[1].split("/")[0]
-                url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-                df = pd.read_csv(url)
+                client = gspread.service_account()
+                sheet = client.open_by_url(sheet_url)
+                worksheet = sheet.worksheet(sheet_name)
+                data = worksheet.get_all_values()
+                df = pd.DataFrame(data[1:], columns=data[0])  # Convert to DataFrame
                 st.session_state["uploaded_data"] = df
                 st.success(f"✅ Data loaded from sheet: {sheet_name}")
             except Exception as e:
@@ -58,7 +62,7 @@ elif tab_selection == "Market Overview":
     else:
         df = st.session_state["uploaded_data"]
         market_overview_dashboard(df)
-
+        
         # ---- Download Processed Data ---- #
         csv = df.to_csv(index=False).encode('utf-8')
         st.sidebar.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
