@@ -52,7 +52,12 @@ tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview"])
 st.sidebar.button("🔓 Logout", on_click=logout)
 
 # ---- Upload Data Page ---- #
-if tab_selection == "Upload Data":
+if "uploaded_data" in st.session_state:
+    df = st.session_state["uploaded_data"]
+    tab_selection = "Market Overview"
+else:
+    df = None
+    tab_selection = st.sidebar.radio("📌 Navigation", ["Upload Data", "Market Overview"])
     st.markdown("<h2 class='centered'>📂 Upload Your Data</h2>", unsafe_allow_html=True)
     
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"))
@@ -76,6 +81,9 @@ if tab_selection == "Upload Data":
                 st.error(f"🚨 Error loading Google Sheet: {e}")
     
     if df is not None:
+        st.session_state["uploaded_data"] = df
+        st.session_state["current_tab"] = "Market Overview"
+        st.rerun()
         try:
             required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", 
                                 "Quanity (Kgs)", "Quanity (Tons)", "Month", "Year", "Consignee State"]
