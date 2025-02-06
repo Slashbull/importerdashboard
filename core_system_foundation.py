@@ -45,7 +45,7 @@ if tab_selection == "Upload Data":
         sheet_name = "data"  # Fixed sheet name selection
         if sheet_url and st.button("Load Google Sheet"):
             try:
-                client = gspread.service_account()
+                client = gspread.Client()
                 sheet = client.open_by_url(sheet_url)
                 worksheet = sheet.worksheet(sheet_name)
                 data = worksheet.get_all_values()
