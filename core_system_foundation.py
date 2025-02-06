@@ -45,10 +45,13 @@ if upload_option == "Upload CSV":
 
 elif upload_option == "Google Sheet Link":
     sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
-    if sheet_url:
+    sheet_name = st.text_input("📑 Enter Sheet Name:")
+    if sheet_url and sheet_name:
         try:
-            df = pd.read_csv(sheet_url)  # Assumes public Google Sheet as CSV format
-            st.success("✅ Google Sheet loaded successfully!")
+            sheet_id = sheet_url.split("/d/")[1].split("/")[0]
+            url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+            df = pd.read_csv(url)
+            st.success(f"✅ Data loaded from sheet: {sheet_name}")
         except Exception as e:
             st.error(f"🚨 Error loading Google Sheet: {e}")
 
