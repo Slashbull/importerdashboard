@@ -23,9 +23,6 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 st.sidebar.success("✅ Logged in")
-if "uploaded_data" in st.session_state:
-    csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
-    st.sidebar.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
 st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
 
 # ---- Upload Data Page ---- #
@@ -73,13 +70,13 @@ if "uploaded_data" in st.session_state:
     st.write(st.session_state["uploaded_data"].describe())
     
     # Optimize storage for large datasets
-    st.session_state["uploaded_data"].convert_dtypes()
+    st.session_state["uploaded_data"] = st.session_state["uploaded_data"].convert_dtypes()
     
     csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
-    if "uploaded_data" in st.session_state:
-    csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
+    
     if "csv_downloaded" not in st.session_state:
         st.session_state["csv_downloaded"] = False
+    
     if not st.session_state["csv_downloaded"]:
         if st.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv"):
             st.session_state["csv_downloaded"] = True
