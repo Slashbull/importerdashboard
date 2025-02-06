@@ -18,7 +18,7 @@ from ai_based_alerts_forecasting import ai_based_alerts_forecasting
 from reporting_data_exports import reporting_data_exports
 
 # -----------------------------------------------------------------------------
-# Logging configuration (optional: adjust as needed)
+# Logging configuration
 # -----------------------------------------------------------------------------
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Fallback function to update query parameters
+# Fallback for Query Parameters Update
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
@@ -78,7 +78,7 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
-    Now, only the 'Tons' column is used.
+    Only the 'Tons' column is used.
     """
     numeric_cols = ["Tons"]
     for col in numeric_cols:
@@ -130,7 +130,6 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Immediately apply global filters
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
@@ -155,7 +154,7 @@ def get_current_data():
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 # -----------------------------------------------------------------------------
-# Custom CSS and Header for a Polished Look
+# Custom CSS and Header
 # -----------------------------------------------------------------------------
 def add_custom_css():
     custom_css = """
@@ -188,14 +187,13 @@ def display_header():
 def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
-    # Display header only once at the top (after CSS is added)
-    display_header()
+    display_header()  # Display header only once
 
-    # Authenticate user
+    # Authenticate the user
     authenticate_user()
     logout_button()
 
-    # Use a dropdown (selectbox) for navigation
+    # Use a dropdown (selectbox) for navigation in the sidebar
     tabs = [
         "Upload Data", 
         "Market Overview", 
@@ -208,12 +206,15 @@ def main():
     current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
+    # Update header after navigation selection
+    display_header()
+
     # Update global filter if data exists
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the selected dashboard page
+    # Route to the selected dashboard
     try:
         if current_tab == "Upload Data":
             df = upload_data()
