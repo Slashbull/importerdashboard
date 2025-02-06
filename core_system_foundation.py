@@ -4,6 +4,7 @@ import requests
 from io import StringIO
 import plotly.express as px
 import logging
+from packaging import version  # For version checking
 
 # Import configuration and filters
 import config
@@ -28,17 +29,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using st.set_query_params
+# Query Parameters Update using st.set_query_params (with fallback)
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters using st.set_query_params.
+    Update query parameters.
+    
     Each parameter value is wrapped in a list if it isn’t already.
     
-    Note: st.set_query_params is now the supported API for updating URL parameters.
+    Uses st.set_query_params if available (Streamlit ≥1.21.0), 
+    otherwise falls back to st.experimental_set_query_params.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
-    st.set_query_params(**new_params)
+    if version.parse(st.__version__) >= version.parse("1.21.0"):
+        st.set_query_params(**new_params)
+    else:
+        st.experimental_set_query_params(**new_params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
