@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from market_overview import market_overview_dashboard
 
 # ---- Basic Core System Foundation ---- #
 
@@ -58,6 +59,9 @@ elif upload_option == "Google Sheet Link":
 if df is not None:
     st.write("### 📊 Raw Data Preview")
     st.dataframe(df.head())
+    
+    # Connect to Market Overview Module
+    market_overview_dashboard(df)
 
 # Logout Button
 st.sidebar.button("🔓 Logout", on_click=logout)
