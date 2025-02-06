@@ -5,6 +5,7 @@ from io import StringIO
 from market_overview import market_overview_dashboard
 from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
+from state_level_market_insights import state_level_market_insights
 
 # ---- Core System Foundation (Future-Ready Design) ---- #
 
@@ -29,7 +30,7 @@ st.sidebar.success("✅ Logged in")
 st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
 
 # Navigation
-tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance"])
+tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance", "State-Level Market Insights"])
 
 if tab_selection == "Upload Data":
     # ---- Upload Data Page ---- #
@@ -120,3 +121,9 @@ elif tab_selection == "Supplier Performance":
         supplier_performance_dashboard()
     except Exception as e:
         st.error(f"🚨 Error loading Supplier Performance Dashboard: {e}")
+
+elif tab_selection == "State-Level Market Insights":
+    try:
+        state_level_market_insights()
+    except Exception as e:
+        st.error(f"🚨 Error loading State-Level Market Insights Dashboard: {e}")
