@@ -1,35 +1,29 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
-# ---- State-Level Market Insights Dashboard ---- #
-def state_level_market_insights():
+def state_level_market_insights(data: pd.DataFrame):
     st.title("🌍 State-Level Market Insights Dashboard")
 
-    if "uploaded_data" not in st.session_state:
+    if data is None or data.empty:
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
 
-    df = st.session_state["uploaded_data"]
-
-    # Ensure required columns exist
-    required_columns = ["Consignee State", "Kgs"]
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        st.error(f"🚨 Missing columns in the dataset: {', '.join(missing_columns)}")
+    required_columns = ["Consignee State", "Kgs", "Year"]
+    missing = [col for col in required_columns if col not in data.columns]
+    if missing:
+        st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Convert Kgs to numeric if not already
-    df["Kgs"] = pd.to_numeric(df["Kgs"], errors="coerce")
+    data["Kgs"] = pd.to_numeric(data["Kgs"], errors="coerce")
 
     st.markdown("### 📌 Top Importing States")
-    top_states = df.groupby("Consignee State")["Kgs"].sum().sort_values(ascending=False).head(5)
-    st.bar_chart(top_states)
+    top_states = data.groupby("Consignee State")["Kgs"].sum().nlargest(5).reset_index()
+    fig1 = px.bar(top_states, x="Consignee State", y="Kgs", title="Top Importing States")
+    st.plotly_chart(fig1, use_container_width=True)
 
-    st.markdown("### 📊 State-Level Growth Tracking (3-Year Trends)")
-    if "Year" in df.columns:
-        state_trends = df.groupby(["Consignee State", "Year"])["Kgs"].sum().unstack(fill_value=0)
-        st.line_chart(state_trends)
-    else:
-        st.warning("⚠️ Column 'Year' is required for tracking trends.")
+    st.markdown("### 📊 State-Level Growth Tracking")
+    state_trends = data.groupby(["Consignee State", "Year"])["Kgs"].sum().unstack(fill_value=0)
+    st.line_chart(state_trends)
     
     st.success("✅ State-Level Market Insights Loaded Successfully!")
