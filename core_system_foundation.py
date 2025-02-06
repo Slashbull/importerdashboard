@@ -62,8 +62,8 @@ if tab_selection == "Upload Data":
         if uploaded_file is not None:
             df = pd.read_csv(uploaded_file)
             st.session_state["uploaded_data"] = df
-            st.session_state["current_tab"] = "Market Overview"
             st.success("✅ File uploaded successfully! Redirecting...")
+            st.session_state["current_tab"] = "Market Overview"
             st.rerun()
     
     elif upload_option == "Google Sheet Link":
@@ -75,8 +75,8 @@ if tab_selection == "Upload Data":
                 url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
                 df = pd.read_csv(url)
                 st.session_state["uploaded_data"] = df
-                st.session_state["current_tab"] = "Market Overview"
                 st.success(f"✅ Data loaded from sheet: {sheet_name}. Redirecting...")
+                st.session_state["current_tab"] = "Market Overview"
                 st.rerun()
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
