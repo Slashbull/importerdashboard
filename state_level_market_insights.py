@@ -21,18 +21,20 @@ def state_level_market_insights(data: pd.DataFrame):
     # Convert Tons to numeric
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create a "Period" column if not already present (for time series analysis)
+    # Create a "Period" column if not present (Month-Year)
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # Define month order for proper sorting
+    # Define month ordering for proper sorting
     month_order = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
                    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
     
     # ---------------------------
-    # Tabbed Layout
+    # Tabbed Layout: Overview, Trends, Growth Analysis, Detailed Analysis
     # ---------------------------
-    tab_overview, tab_trends, tab_details = st.tabs(["Overview", "Trends", "Detailed Analysis"])
+    tab_overview, tab_trends, tab_growth, tab_details = st.tabs([
+        "Overview", "Trends", "Growth Analysis", "Detailed Analysis"
+    ])
 
     # ---------------------------
     # Tab 1: Overview – Key Metrics & Top States
@@ -68,10 +70,7 @@ def state_level_market_insights(data: pd.DataFrame):
     # ---------------------------
     with tab_trends:
         st.subheader("Overall Monthly Trends by State")
-        # Group data by State and Period
         trends_df = data.groupby(["Consignee State", "Period"])["Tons"].sum().reset_index()
-        # For proper chronological order, split Period back into Month and Year (if needed)
-        # Here we assume the Period strings sort correctly; for multi-year data, additional logic may be added.
         fig_trends = px.line(
             trends_df,
             x="Period",
@@ -99,13 +98,13 @@ def state_level_market_insights(data: pd.DataFrame):
             )
             st.plotly_chart(fig_detail, use_container_width=True)
         else:
-            st.info("Please select at least one state to display detailed trends.")
+            st.info("Please select at least one state for detailed analysis.")
 
     # ---------------------------
-    # Tab 3: Detailed Analysis – Pivot Table
+    # Tab 3: Growth Analysis – Period-over-Period Change
     # ---------------------------
-    with tab_details:
-        st.subheader("Detailed State-Level Data")
+    with tab_growth:
+        st.subheader("State-Level Growth Analysis")
         # Create a pivot table: rows = Consignee State, columns = Period, values = Tons
         pivot_table = data.pivot_table(
             index="Consignee State",
@@ -114,7 +113,38 @@ def state_level_market_insights(data: pd.DataFrame):
             aggfunc="sum",
             fill_value=0
         )
-        st.dataframe(pivot_table)
+        # Compute percentage changes for each state across periods
+        growth_pct = pivot_table.pct_change(axis=1) * 100
+        growth_pct = growth_pct.round(2)
+        st.markdown("#### Period-over-Period Percentage Change (%)")
+        st.dataframe(growth_pct)
+        
+        # Additionally, show average growth per state as a bar chart
+        avg_growth = growth_pct.mean(axis=1).reset_index()
+        avg_growth.columns = ["Consignee State", "Average Growth (%)"]
+        fig_growth = px.bar(
+            avg_growth,
+            x="Consignee State",
+            y="Average Growth (%)",
+            title="Average Period-over-Period Growth by State",
+            text_auto=True,
+            color="Average Growth (%)"
+        )
+        st.plotly_chart(fig_growth, use_container_width=True)
+
+    # ---------------------------
+    # Tab 4: Detailed Analysis – Pivot Table View
+    # ---------------------------
+    with tab_details:
+        st.subheader("Detailed State-Level Data")
+        detailed_pivot = data.pivot_table(
+            index="Consignee State",
+            columns="Period",
+            values="Tons",
+            aggfunc="sum",
+            fill_value=0
+        )
+        st.dataframe(detailed_pivot)
         
         st.markdown("#### Summary Table by State")
         summary_table = data.groupby("Consignee State")["Tons"].sum().reset_index().sort_values("Tons", ascending=False)
