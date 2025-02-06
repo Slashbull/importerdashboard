@@ -28,20 +28,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using the new API with fallback
+# Query Parameters Update using st.set_query_params
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters.
-    
+    Update query parameters using st.set_query_params.
     Each parameter value is wrapped in a list if it isn’t already.
-    Uses st.set_query_params if available; otherwise, falls back to st.experimental_set_query_params.
+    
+    Note: Use st.set_query_params (not st.query_params, which is read-only) for updating.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
-    if hasattr(st, "set_query_params"):
-        st.set_query_params(**new_params)
-    else:
-        st.experimental_set_query_params(**new_params)
+    st.set_query_params(**new_params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
