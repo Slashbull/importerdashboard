@@ -86,7 +86,7 @@ def apply_filters(df: pd.DataFrame):
     st.sidebar.header("🔍 Global Data Filters")
     
     # Reset button to restore default filters.
-    if st.sidebar.button("Reset Filters"):
+    if st.sidebar.button("Reset Filters", key="reset_filters"):
         st.rerun()
 
     def ensure_selection(selected, full_list):
@@ -100,7 +100,7 @@ def apply_filters(df: pd.DataFrame):
         if "Consignee State" in df.columns:
             states = sorted(df["Consignee State"].dropna().unique().tolist())
             state_options = ["All"] + states
-            selected_states = st.multiselect("📌 Select State:", options=state_options, default=["All"])
+            selected_states = st.multiselect("📌 Select State:", options=state_options, default=["All"], key="state_filter")
             if "All" in selected_states:
                 selected_states = states
             selected_states = ensure_selection(selected_states, states)
@@ -112,7 +112,7 @@ def apply_filters(df: pd.DataFrame):
         if "Month" in df.columns:
             months = sorted(df["Month"].dropna().unique().tolist())
             month_options = ["All"] + months
-            selected_months = st.multiselect("📅 Select Month:", options=month_options, default=["All"])
+            selected_months = st.multiselect("📅 Select Month:", options=month_options, default=["All"], key="month_filter")
             if "All" in selected_months:
                 selected_months = months
             selected_months = ensure_selection(selected_months, months)
@@ -124,7 +124,7 @@ def apply_filters(df: pd.DataFrame):
         if "Year" in df.columns:
             years = sorted(df["Year"].dropna().unique().tolist())
             year_options = ["All"] + [str(y) for y in years]
-            selected_years = st.multiselect("📆 Select Year:", options=year_options, default=["All"])
+            selected_years = st.multiselect("📆 Select Year:", options=year_options, default=["All"], key="year_filter")
             if "All" in selected_years:
                 selected_years = [str(y) for y in years]
             selected_years = ensure_selection(selected_years, [str(y) for y in years])
@@ -136,7 +136,7 @@ def apply_filters(df: pd.DataFrame):
         if "Consignee" in df.columns:
             consignees = sorted(df["Consignee"].dropna().unique().tolist())
             consignee_options = ["All"] + consignees
-            selected_consignees = st.multiselect("🏢 Select Consignee:", options=consignee_options, default=["All"])
+            selected_consignees = st.multiselect("🏢 Select Consignee:", options=consignee_options, default=["All"], key="consignee_filter")
             if "All" in selected_consignees:
                 selected_consignees = consignees
             selected_consignees = ensure_selection(selected_consignees, consignees)
@@ -148,7 +148,7 @@ def apply_filters(df: pd.DataFrame):
         if "Exporter" in df.columns:
             exporters = sorted(df["Exporter"].dropna().unique().tolist())
             exporter_options = ["All"] + exporters
-            selected_exporters = st.multiselect("🚢 Select Exporter:", options=exporter_options, default=["All"])
+            selected_exporters = st.multiselect("🚢 Select Exporter:", options=exporter_options, default=["All"], key="exporter_filter")
             if "All" in selected_exporters:
                 selected_exporters = exporters
             selected_exporters = ensure_selection(selected_exporters, exporters)
@@ -163,7 +163,7 @@ def apply_filters(df: pd.DataFrame):
                 df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
             products = sorted(df["Product"].dropna().unique().tolist())
             product_options = ["All"] + products
-            selected_products = st.multiselect("🔖 Select Product:", options=product_options, default=["All"])
+            selected_products = st.multiselect("🔖 Select Product:", options=product_options, default=["All"], key="product_filter")
             if "All" in selected_products:
                 selected_products = products
             selected_products = ensure_selection(selected_products, products)
