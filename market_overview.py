@@ -17,10 +17,10 @@ def market_overview_dashboard(df):
         return
 
     # ---- Key Metrics ---- #
-    total_imports = df["Quanity (Kgs)"].sum()
-    unique_suppliers = df["Exporter"].nunique()
-    unique_competitors = df["Consignee"].nunique()
-    top_state = df.groupby("Consignee State")["Quanity (Kgs)"].sum().idxmax()
+    total_imports = df["Quanity (Kgs)"].sum() if "Quanity (Kgs)" in df.columns else 0
+    unique_suppliers = df["Exporter"].nunique() if "Exporter" in df.columns else 0
+    unique_competitors = df["Consignee"].nunique() if "Consignee" in df.columns else 0
+    top_state = df.groupby("Consignee State")["Quanity (Kgs)"].sum().idxmax() if "Consignee State" in df.columns else "N/A"
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("📦 Total Import Volume (Kgs)", f"{total_imports:,.2f}")
@@ -29,33 +29,37 @@ def market_overview_dashboard(df):
     col4.metric("📍 Top State by Volume", top_state)
 
     # ---- Monthly Trend Analysis ---- #
-    st.subheader("📅 Monthly Import Trends")
-    monthly_trends = df.groupby("Month")["Quanity (Kgs)"].sum().reset_index()
-    fig = px.line(monthly_trends, x="Month", y="Quanity (Kgs)", title="Monthly Import Trends")
-    st.plotly_chart(fig, use_container_width=True)
+    if "Month" in df.columns and "Quanity (Kgs)" in df.columns:
+        st.subheader("📅 Monthly Import Trends")
+        monthly_trends = df.groupby("Month")["Quanity (Kgs)"].sum().reset_index()
+        fig = px.line(monthly_trends, x="Month", y="Quanity (Kgs)", title="Monthly Import Trends")
+        st.plotly_chart(fig, use_container_width=True)
 
     # ---- Top 5 Competitors ---- #
-    st.subheader("🏆 Top 5 Importing Competitors")
-    top_competitors = df.groupby("Consignee")["Quanity (Kgs)"].sum().nlargest(5).reset_index()
-    fig = px.bar(top_competitors, x="Consignee", y="Quanity (Kgs)", title="Top 5 Importing Competitors")
-    st.plotly_chart(fig, use_container_width=True)
+    if "Consignee" in df.columns and "Quanity (Kgs)" in df.columns:
+        st.subheader("🏆 Top 5 Importing Competitors")
+        top_competitors = df.groupby("Consignee")["Quanity (Kgs)"].sum().nlargest(5).reset_index()
+        fig = px.bar(top_competitors, x="Consignee", y="Quanity (Kgs)", title="Top 5 Importing Competitors")
+        st.plotly_chart(fig, use_container_width=True)
 
     # ---- Top 5 Suppliers ---- #
-    st.subheader("🏭 Top 5 Suppliers by Import Volume")
-    top_suppliers = df.groupby("Exporter")["Quanity (Kgs)"].sum().nlargest(5).reset_index()
-    fig = px.bar(top_suppliers, x="Exporter", y="Quanity (Kgs)", title="Top 5 Suppliers")
-    st.plotly_chart(fig, use_container_width=True)
+    if "Exporter" in df.columns and "Quanity (Kgs)" in df.columns:
+        st.subheader("🏭 Top 5 Suppliers by Import Volume")
+        top_suppliers = df.groupby("Exporter")["Quanity (Kgs)"].sum().nlargest(5).reset_index()
+        fig = px.bar(top_suppliers, x="Exporter", y="Quanity (Kgs)", title="Top 5 Suppliers")
+        st.plotly_chart(fig, use_container_width=True)
 
     # ---- State-Wise Analysis ---- #
-    st.subheader("📍 State-Wise Import Trends")
-    state_imports = df.groupby("Consignee State")["Quanity (Kgs)"].sum().reset_index()
-    fig = px.choropleth(
-        state_imports,
-        locations="Consignee State",
-        locationmode="USA-states",
-        color="Quanity (Kgs)",
-        title="State-Wise Import Trends",
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    if "Consignee State" in df.columns and "Quanity (Kgs)" in df.columns:
+        st.subheader("📍 State-Wise Import Trends")
+        state_imports = df.groupby("Consignee State")["Quanity (Kgs)"].sum().reset_index()
+        fig = px.choropleth(
+            state_imports,
+            locations="Consignee State",
+            locationmode="country names",
+            color="Quanity (Kgs)",
+            title="State-Wise Import Trends",
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # Save file as market_overview.py
