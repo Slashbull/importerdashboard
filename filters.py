@@ -4,6 +4,10 @@ from rapidfuzz import process, fuzz  # Requires: pip install rapidfuzz
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 
+# -----------------------------------------------------------------------------
+# Candidate Categories Generation (Cached)
+# -----------------------------------------------------------------------------
+@st.cache_data(show_spinner=False)
 def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> list:
     """
     Automatically generate candidate product categories from the 'Mark' column using TF‑IDF and K‑Means.
@@ -27,13 +31,15 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
     terms = vectorizer.get_feature_names_out()
     candidate_categories = []
     for i in range(num_clusters):
-        # Use the top 5 terms in each cluster as the candidate label
         top_terms = [terms[ind] for ind in order_centroids[i, :5]]
         label = " / ".join(top_terms)
         candidate_categories.append(label)
     
     return candidate_categories
 
+# -----------------------------------------------------------------------------
+# Fuzzy Matching for Product Classification (Cached)
+# -----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
 def classify_mark(mark: str, candidate_categories: list = None, threshold: int = 70) -> str:
     """
@@ -57,12 +63,14 @@ def classify_mark(mark: str, candidate_categories: list = None, threshold: int =
         return best_match[0]
     return "Other"
 
+# -----------------------------------------------------------------------------
+# Global Data Filters
+# -----------------------------------------------------------------------------
 def apply_filters(df: pd.DataFrame):
     """
     Applies global filters to the DataFrame with real-time feedback.
-    Each filter provides an "All" option by default. When only "All" is selected,
-    the full list of unique values is used automatically; if any additional values
-    are selected, "All" is automatically removed.
+    Each filter provides an "All" option by default. When additional values are selected,
+    "All" is removed automatically. If no values are selected, the full list of unique values is used.
     
     Filters are applied for:
       - Consignee State
@@ -74,26 +82,32 @@ def apply_filters(df: pd.DataFrame):
       
     Returns:
       - The filtered DataFrame.
-      - The unit column (which is fixed as "Tons").
+      - The unit column (fixed as "Tons").
     """
     st.sidebar.header("🔍 Global Data Filters")
     
-    # Reset Filters Button: Clear filter keys and rerun the app.
+    # ------------------
+    # Reset Button: When clicked, re-run the app with all filters set to "All"
+    # ------------------
     if st.sidebar.button("Reset Filters"):
-        for key in ["filter_state", "filter_month", "filter_year", "filter_consignee", "filter_exporter", "filter_product"]:
-            if key in st.session_state:
-                del st.session_state[key]
+        # Reset all keys to their default "All" values
+        st.session_state["filter_state"] = ["All"]
+        st.session_state["filter_month"] = ["All"]
+        st.session_state["filter_year"] = ["All"]
+        st.session_state["filter_consignee"] = ["All"]
+        st.session_state["filter_exporter"] = ["All"]
+        st.session_state["filter_product"] = ["All"]
         st.rerun()
-    
+
     def ensure_selection(selected, full_list):
-        """If selection is empty, return the full list; if 'All' is combined with others, remove 'All'."""
+        """If selection is empty, return the full list. If 'All' is selected with others, remove 'All'."""
         if not selected or len(selected) == 0:
             return full_list
         # If "All" is present along with other selections, remove "All"
         if "All" in selected and len(selected) > 1:
-            selected.remove("All")
+            selected = [x for x in selected if x != "All"]
         # If "All" is the only selection, use the full list
-        if "All" in selected and len(selected) == 1:
+        if selected == ["All"]:
             return full_list
         return selected
 
@@ -102,9 +116,12 @@ def apply_filters(df: pd.DataFrame):
         states = sorted(df["Consignee State"].dropna().unique().tolist())
         state_options = ["All"] + states
         selected_states = st.sidebar.multiselect(
-            "📌 Select State:", options=state_options, default=["All"], key="filter_state"
+            "📌 Select State:", options=state_options,
+            default=st.session_state.get("filter_state", ["All"]),
+            key="filter_state"
         )
         selected_states = ensure_selection(selected_states, states)
+        st.session_state["filter_state"] = selected_states
     else:
         selected_states = []
 
@@ -113,9 +130,12 @@ def apply_filters(df: pd.DataFrame):
         months = sorted(df["Month"].dropna().unique().tolist())
         month_options = ["All"] + months
         selected_months = st.sidebar.multiselect(
-            "📅 Select Month:", options=month_options, default=["All"], key="filter_month"
+            "📅 Select Month:", options=month_options,
+            default=st.session_state.get("filter_month", ["All"]),
+            key="filter_month"
         )
         selected_months = ensure_selection(selected_months, months)
+        st.session_state["filter_month"] = selected_months
     else:
         selected_months = []
 
@@ -124,9 +144,12 @@ def apply_filters(df: pd.DataFrame):
         years = sorted(df["Year"].dropna().unique().tolist())
         year_options = ["All"] + [str(y) for y in years]
         selected_years = st.sidebar.multiselect(
-            "📆 Select Year:", options=year_options, default=["All"], key="filter_year"
+            "📆 Select Year:", options=year_options,
+            default=st.session_state.get("filter_year", ["All"]),
+            key="filter_year"
         )
         selected_years = ensure_selection(selected_years, [str(y) for y in years])
+        st.session_state["filter_year"] = selected_years
     else:
         selected_years = []
 
@@ -135,9 +158,12 @@ def apply_filters(df: pd.DataFrame):
         consignees = sorted(df["Consignee"].dropna().unique().tolist())
         consignee_options = ["All"] + consignees
         selected_consignees = st.sidebar.multiselect(
-            "🏢 Select Consignee:", options=consignee_options, default=["All"], key="filter_consignee"
+            "🏢 Select Consignee:", options=consignee_options,
+            default=st.session_state.get("filter_consignee", ["All"]),
+            key="filter_consignee"
         )
         selected_consignees = ensure_selection(selected_consignees, consignees)
+        st.session_state["filter_consignee"] = selected_consignees
     else:
         selected_consignees = []
 
@@ -146,24 +172,30 @@ def apply_filters(df: pd.DataFrame):
         exporters = sorted(df["Exporter"].dropna().unique().tolist())
         exporter_options = ["All"] + exporters
         selected_exporters = st.sidebar.multiselect(
-            "🚢 Select Exporter:", options=exporter_options, default=["All"], key="filter_exporter"
+            "🚢 Select Exporter:", options=exporter_options,
+            default=st.session_state.get("filter_exporter", ["All"]),
+            key="filter_exporter"
         )
         selected_exporters = ensure_selection(selected_exporters, exporters)
+        st.session_state["filter_exporter"] = selected_exporters
     else:
         selected_exporters = []
 
     # --- Filter by Product ---
     if "Mark" in df.columns:
-        # If the "Product" column is not present, generate it automatically.
+        # Automatically create the "Product" column if not present.
         if "Product" not in df.columns:
             candidate_categories = generate_candidate_categories(df, num_clusters=5)
             df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
         products = sorted(df["Product"].dropna().unique().tolist())
         product_options = ["All"] + products
         selected_products = st.sidebar.multiselect(
-            "🔖 Select Product:", options=product_options, default=["All"], key="filter_product"
+            "🔖 Select Product:", options=product_options,
+            default=st.session_state.get("filter_product", ["All"]),
+            key="filter_product"
         )
         selected_products = ensure_selection(selected_products, products)
+        st.session_state["filter_product"] = selected_products
     else:
         selected_products = []
     
