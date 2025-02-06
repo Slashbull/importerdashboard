@@ -85,7 +85,7 @@ def apply_filters(df: pd.DataFrame):
     """
     st.sidebar.header("🔍 Global Data Filters")
 
-    # Helper function to ensure full selection if empty or "All" is selected.
+    # Helper function to return the full list if selection is empty or contains "All"
     def ensure_selection(selected, full_list):
         if not selected or "All" in selected:
             return full_list
@@ -97,7 +97,7 @@ def apply_filters(df: pd.DataFrame):
     full_years = sorted([str(y) for y in df["Year"].dropna().unique().tolist()]) if "Year" in df.columns else []
     full_consignees = sorted(df["Consignee"].dropna().unique().tolist()) if "Consignee" in df.columns else []
     full_exporters = sorted(df["Exporter"].dropna().unique().tolist()) if "Exporter" in df.columns else []
-    
+
     # For product classification, ensure the "Product" column exists.
     if "Mark" in df.columns and "Product" not in df.columns:
         candidate_categories = generate_candidate_categories(df, num_clusters=5)
@@ -106,32 +106,32 @@ def apply_filters(df: pd.DataFrame):
 
     # --- Filter by Consignee State ---
     with st.sidebar.expander("Filter by Consignee State", expanded=True):
-        selected_states = st.multiselect("📌 Select State:", options=["All"] + full_states, default=["All"], key="state_filter")
+        selected_states = st.multiselect("📌 Select State:", options=["All"] + full_states, default=["All"], key="filter_state")
         selected_states = ensure_selection(selected_states, full_states)
 
     # --- Filter by Month ---
     with st.sidebar.expander("Filter by Month", expanded=True):
-        selected_months = st.multiselect("📅 Select Month:", options=["All"] + full_months, default=["All"], key="month_filter")
+        selected_months = st.multiselect("📅 Select Month:", options=["All"] + full_months, default=["All"], key="filter_month")
         selected_months = ensure_selection(selected_months, full_months)
 
     # --- Filter by Year ---
     with st.sidebar.expander("Filter by Year", expanded=True):
-        selected_years = st.multiselect("📆 Select Year:", options=["All"] + full_years, default=["All"], key="year_filter")
+        selected_years = st.multiselect("📆 Select Year:", options=["All"] + full_years, default=["All"], key="filter_year")
         selected_years = ensure_selection(selected_years, full_years)
 
     # --- Filter by Consignee ---
     with st.sidebar.expander("Filter by Consignee", expanded=True):
-        selected_consignees = st.multiselect("🏢 Select Consignee:", options=["All"] + full_consignees, default=["All"], key="consignee_filter")
+        selected_consignees = st.multiselect("🏢 Select Consignee:", options=["All"] + full_consignees, default=["All"], key="filter_consignee")
         selected_consignees = ensure_selection(selected_consignees, full_consignees)
 
     # --- Filter by Exporter ---
     with st.sidebar.expander("Filter by Exporter", expanded=True):
-        selected_exporters = st.multiselect("🚢 Select Exporter:", options=["All"] + full_exporters, default=["All"], key="exporter_filter")
+        selected_exporters = st.multiselect("🚢 Select Exporter:", options=["All"] + full_exporters, default=["All"], key="filter_exporter")
         selected_exporters = ensure_selection(selected_exporters, full_exporters)
 
     # --- Filter by Product ---
     with st.sidebar.expander("Filter by Product", expanded=True):
-        selected_products = st.multiselect("🔖 Select Product:", options=["All"] + full_products, default=["All"], key="product_filter")
+        selected_products = st.multiselect("🔖 Select Product:", options=["All"] + full_products, default=["All"], key="filter_product")
         selected_products = ensure_selection(selected_products, full_products)
 
     # Build a dictionary of filter criteria.
@@ -144,7 +144,7 @@ def apply_filters(df: pd.DataFrame):
         "Product": selected_products,
     }
 
-    # Apply cascading filtering: start with the full DataFrame and narrow down based on each filter.
+    # Apply cascading filtering: iterate over each filter criterion.
     filtered_df = df.copy()
     for col, selection in filter_criteria.items():
         if col in df.columns:
