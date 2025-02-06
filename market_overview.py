@@ -23,7 +23,7 @@ def market_overview_dashboard(df):
     top_state = df.groupby("Consignee State")["Quanity (Kgs)"].sum().idxmax() if "Consignee State" in df.columns else "N/A"
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📦 Total Import Volume (Kgs)", f"{total_imports:,.2f}")
+    col1.metric("📦 Total Import Volume (Kgs)", f"{total_imports:,.2f}" if isinstance(total_imports, (int, float)) else "N/A")
     col2.metric("🏭 Unique Suppliers", unique_suppliers)
     col3.metric("🏆 Unique Competitors", unique_competitors)
     col4.metric("📍 Top State by Volume", top_state)
