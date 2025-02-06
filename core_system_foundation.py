@@ -5,6 +5,10 @@ from io import StringIO
 import plotly.express as px
 import logging
 
+# Uncomment and configure Sentry for real-time error monitoring in production:
+# import sentry_sdk
+# sentry_sdk.init(dsn="YOUR_SENTRY_DSN_HERE", traces_sample_rate=1.0)
+
 # Import configuration and filters
 import config
 from filters import apply_filters
@@ -33,7 +37,7 @@ logger = logging.getLogger(__name__)
 def update_query_params(params: dict):
     """
     Update query parameters using st.set_query_params.
-    Each parameter value is converted to a list of strings as required by the API.
+    Each parameter value is wrapped in a list if it isn’t already.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
     st.set_query_params(**new_params)
@@ -50,8 +54,8 @@ def authenticate_user():
 
     if not st.session_state["authenticated"]:
         st.sidebar.title("🔒 Login")
-        username = st.sidebar.text_input("👤 Username", key="login_username")
-        password = st.sidebar.text_input("🔑 Password", type="password", key="login_password")
+        username = st.sidebar.text_input("👤 Username", key="login_username", help="Enter your username.")
+        password = st.sidebar.text_input("🔑 Password", type="password", key="login_password", help="Enter your password.")
         if st.sidebar.button("🚀 Login"):
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
@@ -77,7 +81,7 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
-    Only the 'Tons' column is used.
+    Only the 'Tons' column is processed.
     """
     numeric_cols = ["Tons"]
     for col in numeric_cols:
@@ -102,7 +106,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both the raw and filtered data in session_state.
+    and store both raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
