@@ -1,20 +1,32 @@
 import streamlit as st
 import pandas as pd
-from market_overview import market_overview_dashboard
+import hashlib
 
-# ---- Basic Core System Foundation ---- #
+# ---- Core System Foundation ---- #
 
 # ---- User Authentication ---- #
 USERS = {"admin": "admin123"}
+
+def hash_password(password: str) -> str:
+    """Hash passwords using SHA-256 for security."""
+    return hashlib.sha256(password.encode()).hexdigest()
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 def login():
-    """User login system."""
-    st.title("🔒 Secure Login")
-    username = st.text_input("Username", key="login_username")
-    password = st.text_input("Password", type="password", key="login_password")
+    """User login system with modern UI."""
+    st.markdown("""
+    <style>
+        .centered { text-align: center; }
+        .stTextInput>div>div>input { text-align: center; }
+        .stButton>button { width: 100%; border-radius: 8px; padding: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<h2 class='centered'>🔒 Secure Login</h2>", unsafe_allow_html=True)
+    username = st.text_input("👤 Username", key="login_username")
+    password = st.text_input("🔑 Password", type="password", key="login_password")
     
     if st.button("🚀 Login"):
         if username in USERS and USERS[username] == password:
@@ -34,7 +46,8 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ---- File Upload or Google Sheet Link ---- #
-st.title("📂 Upload Your Data")
+st.markdown("<h2 class='centered'>📂 Upload Your Data</h2>", unsafe_allow_html=True)
+
 upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"))
 
 df = None
@@ -57,11 +70,31 @@ elif upload_option == "Google Sheet Link":
             st.error(f"🚨 Error loading Google Sheet: {e}")
 
 if df is not None:
-    st.write("### 📊 Raw Data Preview")
-    st.dataframe(df.head())
+    try:
+        # Ensure required columns exist
+        required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", "Quanity (Kgs)", "Quanity (Tons)", "Month", "Year", "Consignee State"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"🚨 Missing Columns: {missing_columns}")
+            st.stop()
+        
+        # Data Cleaning
+        month_map = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+                     "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+        df["Quanity (Kgs)"] = df["Quanity (Kgs)"].astype(str).str.replace(" Kgs", "").astype(float)
+        df["Quanity (Tons)"] = df["Quanity (Tons)"].astype(str).str.replace(" tons", "").astype(float)
+        df["Month"] = df["Month"].map(month_map)
+        df["Consignee State"].fillna("Unknown", inplace=True)
+        df.drop_duplicates(inplace=True)  # Remove exact duplicate rows
+        
+        st.success("✅ Data successfully processed!")
+        
+        # Display Processed Data
+        st.write("### 📊 Processed Data Preview")
+        st.dataframe(df.head())
     
-    # Connect to Market Overview Module
-    market_overview_dashboard(df)
+    except Exception as e:
+        st.error(f"🚨 Error processing file: {e}")
 
 # Logout Button
 st.sidebar.button("🔓 Logout", on_click=logout)
