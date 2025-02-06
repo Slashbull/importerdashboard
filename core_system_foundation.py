@@ -72,7 +72,8 @@ elif upload_option == "Google Sheet Link":
 if df is not None:
     try:
         # Ensure required columns exist
-        required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", "Quanity (Kgs)", "Quanity (Tons)", "Month", "Year", "Consignee State"]
+        required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", 
+                            "Quanity (Kgs)", "Quanity (Tons)", "Month", "Year", "Consignee State"]
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             st.error(f"🚨 Missing Columns: {missing_columns}")
@@ -85,14 +86,16 @@ if df is not None:
         df["Quanity (Tons)"] = df["Quanity (Tons)"].astype(str).str.replace(" tons", "").str.replace(",", "").astype(float)
         df["Month"] = df["Month"].map(month_map)
         df["Consignee State"].fillna("Unknown", inplace=True)
-        df.drop_duplicates(inplace=True)  # Remove exact duplicate rows
+
+        # Success Message with Summary Statistics
+        st.success(f"✅ {len(df)} rows loaded successfully after processing.")
+        st.write(f"### Dataset Summary:")
+        st.write(f"- **Total Rows:** {len(df)}")
+        st.write(f"- **Total Columns:** {len(df.columns)}")
+        st.write(f"- **Columns:** {', '.join(df.columns)}")
+        st.write(f"- **Top 3 Consignees by Quantity (Kgs):**")
+        st.write(df.groupby("Consignee")["Quanity (Kgs)"].sum().nlargest(3))
         
-        st.success("✅ Data successfully processed!")
-        
-        # Display Processed Data
-        st.write("### 📊 Processed Data Preview")
-        st.dataframe(df.head())
-    
     except Exception as e:
         st.error(f"🚨 Error processing file: {e}")
 
