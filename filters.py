@@ -64,11 +64,13 @@ def apply_filters(df: pd.DataFrame):
     else:
         selected_mark = []
     
-    # Unit Toggle
-    unit_toggle = st.sidebar.radio("⚖️ Select Unit:", ("Kgs", "Tons"))
-    unit_column = "Kgs" if unit_toggle == "Kgs" else "Tons"
+    # Always work on Tons column
+    unit_column = "Tons"
+    # (If needed, you can also ensure numeric conversion here)
+    if unit_column in df.columns:
+        df[unit_column] = pd.to_numeric(df[unit_column], errors='coerce')
     
-    # Apply filters to the data
+    # Apply filters
     filtered_df = df.copy()
     if "Consignee State" in df.columns:
         filtered_df = filtered_df[filtered_df["Consignee State"].isin(selected_state)]
@@ -82,9 +84,5 @@ def apply_filters(df: pd.DataFrame):
         filtered_df = filtered_df[filtered_df["Exporter"].isin(selected_exporter)]
     if "Mark" in df.columns:
         filtered_df = filtered_df[filtered_df["Mark"].isin(selected_mark)]
-    
-    # Convert selected unit column to numeric
-    if unit_column in filtered_df.columns:
-        filtered_df[unit_column] = pd.to_numeric(filtered_df[unit_column], errors='coerce')
     
     return filtered_df, unit_column
