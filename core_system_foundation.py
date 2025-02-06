@@ -28,17 +28,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using st.set_query_params
+# Query Parameters Update using st.set_query_params with error ignoring
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
     Update query parameters using st.set_query_params.
     Each parameter value is wrapped in a list if it isn’t already.
-    
-    Note: Use st.set_query_params (not st.query_params, which is read-only) for updating.
+    If updating fails, ignore the error and log it.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
-    st.set_query_params(**new_params)
+    try:
+        st.set_query_params(**new_params)
+    except Exception as e:
+        # Log the error but do not show it to the user.
+        logger.exception("Failed to update query parameters: %s", e)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
