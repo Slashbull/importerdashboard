@@ -88,13 +88,13 @@ if tab_selection == "Upload Data":
                          "Jul": 7, "Aug": 8, "Sept": 9, "Oct": 10, "Nov": 11, "Dec": 12}
             df["Quanity (Kgs)"] = df["Quanity (Kgs)"].astype(str).str.replace(" Kgs", "").str.replace(",", "").astype(float)
             df["Quanity (Tons)"] = df["Quanity (Tons)"].astype(str).str.replace(" tons", "").str.replace(",", "").astype(float)
-            df["Month"] = df["Month"].map(month_map)
+            df["Month"] = df["Month"].astype(str).str[:3]
             df["Consignee State"].fillna("Unknown", inplace=True)
             
             st.success("✅ Data processing completed.")
             
             # ---- Download Processed Data ---- #
-            csv = df.to_csv(index=False).encode('utf-8')
+            csv = df.loc[:, ~df.columns.str.contains('^Unnamed')].to_csv(index=False).encode('utf-8')
             st.sidebar.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
         
         except Exception as e:
