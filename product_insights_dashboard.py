@@ -21,21 +21,13 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
     Returns:
       A list of candidate category labels.
     """
-    # Use only non-null marks
     marks = df['Mark'].dropna().tolist()
     if not marks:
         return ["Other"]
-    
-    # Vectorize the text using TF-IDF
     vectorizer = TfidfVectorizer(stop_words='english')
     X = vectorizer.fit_transform(marks)
-    
-    # Apply KMeans clustering
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
     kmeans.fit(X)
-    labels = kmeans.labels_
-    
-    # Get top terms for each cluster
     order_centroids = kmeans.cluster_centers_.argsort()[:, ::-1]
     terms = vectorizer.get_feature_names_out()
     candidate_categories = []
@@ -43,17 +35,15 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
         top_terms = [terms[ind] for ind in order_centroids[i, :5]]
         label = " / ".join(top_terms)
         candidate_categories.append(label)
-    
     return candidate_categories
 
 # ----------------------------------
-# Function to classify product using fuzzy matching against candidate categories
+# Function to classify product using fuzzy matching
 # ----------------------------------
 @st.cache_data(show_spinner=False)
 def classify_product(mark: str, candidate_categories: list, threshold: int = 70) -> str:
     """
-    Classify a product description (from 'Mark') by fuzzy matching it against automatically
-    generated candidate product categories.
+    Classify a product description (from 'Mark') by fuzzy matching it against candidate categories.
     
     Parameters:
       - mark (str): The product description.
@@ -61,11 +51,10 @@ def classify_product(mark: str, candidate_categories: list, threshold: int = 70)
       - threshold (int): Minimum matching score to accept a category.
     
     Returns:
-      A simplified product category, or "Other" if no candidate meets the threshold.
+      A simplified product category, or "Other" if no match meets the threshold.
     """
     if not isinstance(mark, str) or not candidate_categories:
         return "Unknown"
-    
     best_match = process.extractOne(mark, candidate_categories, scorer=fuzz.token_set_ratio)
     if best_match and best_match[1] >= threshold:
         return best_match[0]
@@ -84,34 +73,28 @@ def product_insights_dashboard(data: pd.DataFrame):
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
 
-    # Required columns: "Mark", "Tons", "Month", "Year"
     required_columns = ["Mark", "Tons", "Month", "Year"]
     missing = [col for col in required_columns if col not in data.columns]
     if missing:
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Convert Tons to numeric
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
-
-    # Create a "Period" column (format: Month-Year) if not present
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # ----------------------------------
-    # Automatic Candidate Generation for Product Categories
-    # ----------------------------------
+    # Generate candidate product categories automatically
     candidate_categories = generate_candidate_categories(data, num_clusters=5)
     st.sidebar.markdown("**Generated Candidate Categories:**")
     st.sidebar.write(candidate_categories)
     
-    # Create the Product Category column automatically if not already present.
+    # Create the Product column using fuzzy matching
     if "Product" not in data.columns:
         data["Product"] = data["Mark"].apply(lambda x: classify_product(x, candidate_categories))
 
-    # ----------------------------------
+    # ---------------------------
     # Tabbed Layout: Overview, Trends, Market Share, Detailed Analysis
-    # ----------------------------------
+    # ---------------------------
     tab_overview, tab_trends, tab_market_share, tab_details = st.tabs(
         ["Overview", "Trends", "Market Share", "Detailed Analysis"]
     )
@@ -162,7 +145,7 @@ def product_insights_dashboard(data: pd.DataFrame):
         st.plotly_chart(fig_trends, use_container_width=True)
         
         st.markdown("<hr>", unsafe_allow_html=True)
-        st.subheader("Detailed Trends for Selected Product Categories")
+        st.subheader("Detailed Trends for Selected Products")
         all_products = sorted(data["Product"].dropna().unique().tolist())
         selected_products = st.multiselect("Select Product Categories", options=all_products, default=all_products[:3])
         if selected_products:
