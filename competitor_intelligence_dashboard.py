@@ -1,138 +1,243 @@
 import streamlit as st
 import pandas as pd
+import requests
+from io import StringIO
 import plotly.express as px
+import logging
 
-def competitor_intelligence_dashboard(data: pd.DataFrame):
-    st.title("🤝 Competitor Intelligence Dashboard")
-    
-    # Validate data presence and required columns.
-    if data is None or data.empty:
-        st.warning("⚠️ No data available. Please upload a dataset first.")
-        return
+# Import configuration and filters
+import config
+from filters import apply_filters
 
-    required_columns = ["Consignee", "Exporter", "Tons", "Month", "Year"]
-    missing = [col for col in required_columns if col not in data.columns]
-    if missing:
-        st.error(f"🚨 Missing columns: {', '.join(missing)}")
-        return
+# Import dashboard modules
+from market_overview import market_overview_dashboard
+from competitor_intelligence_dashboard import competitor_intelligence_dashboard
+from supplier_performance_dashboard import supplier_performance_dashboard
+from state_level_market_insights import state_level_market_insights
+from ai_based_alerts_forecasting import ai_based_alerts_forecasting
+from reporting_data_exports import reporting_data_exports
+from product_insights_dashboard import product_insights_dashboard  # <-- New module
 
-    # Ensure that Tons is numeric.
-    data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
-    
-    # Create a 'Period' column if not present.
-    if "Period" not in data.columns:
-        data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
-    
-    # ---------------------------
-    # Summary Section: Overall Competitor Metrics
-    # ---------------------------
-    st.subheader("Competitor Summary")
-    # Compute total volume by competitor
-    comp_agg = data.groupby("Consignee")["Tons"].sum().reset_index()
-    total_competitor_volume = comp_agg["Tons"].sum()
-    avg_competitor_volume = comp_agg["Tons"].mean() if not comp_agg.empty else 0
-    
-    # Compute period-over-period growth for each competitor
-    # For simplicity, calculate growth for each competitor using the last two periods available.
-    growth_list = []
-    for comp in comp_agg["Consignee"]:
-        comp_data = data[data["Consignee"] == comp].groupby("Period")["Tons"].sum().sort_index()
-        if len(comp_data) >= 2 and comp_data.iloc[-2] != 0:
-            growth = ((comp_data.iloc[-1] - comp_data.iloc[-2]) / comp_data.iloc[-2]) * 100
-            growth_list.append(growth)
-        else:
-            growth_list.append(0)
-    comp_agg["Recent Growth (%)"] = growth_list
+# -----------------------------------------------------------------------------
+# Logging configuration
+# -----------------------------------------------------------------------------
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-    best_growth = comp_agg["Recent Growth (%)"].max() if not comp_agg.empty else 0
-    worst_growth = comp_agg["Recent Growth (%)"].min() if not comp_agg.empty else 0
+# -----------------------------------------------------------------------------
+# Fallback for Query Parameters Update
+# -----------------------------------------------------------------------------
+def update_query_params(params: dict):
+    """
+    Try to update query parameters using st.set_query_params.
+    If unavailable, fall back to st.experimental_set_query_params.
+    """
+    try:
+        st.set_query_params(**params)
+    except AttributeError:
+        st.experimental_set_query_params(**params)
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Competitor Volume (Tons)", f"{total_competitor_volume:,.2f}")
-    col2.metric("Average Volume per Competitor", f"{avg_competitor_volume:,.2f}")
-    col3.metric("Best Recent Growth (%)", f"{best_growth:,.2f}")
-    col4.metric("Worst Recent Growth (%)", f"{worst_growth:,.2f}")
+# -----------------------------------------------------------------------------
+# Authentication & Session Management
+# -----------------------------------------------------------------------------
+def authenticate_user():
+    """
+    Display a login form and validate credentials from config.
+    """
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
 
-    st.markdown("---")
-    
-    # Create a tabbed layout.
-    tab_top, tab_export, tab_growth = st.tabs(["Top Competitors", "Exporters Breakdown", "Growth & Trends"])
+    if not st.session_state["authenticated"]:
+        st.sidebar.title("🔒 Login")
+        username = st.sidebar.text_input("👤 Username", key="login_username")
+        password = st.sidebar.text_input("🔑 Password", type="password", key="login_password")
+        if st.sidebar.button("🚀 Login"):
+            if username == config.USERNAME and password == config.PASSWORD:
+                st.session_state["authenticated"] = True
+                st.session_state["current_tab"] = "Upload Data"
+                update_query_params({"tab": "Upload Data"})
+                logger.info("User authenticated successfully.")
+            else:
+                st.sidebar.error("🚨 Invalid Username or Password")
+                logger.warning("Failed login attempt.")
+        st.stop()
 
-    # ---------------------------
-    # Tab 1: Top Competitors
-    # ---------------------------
-    with tab_top:
-        st.subheader("Top Competitors by Volume")
-        # Allow the user to choose how many top competitors to display.
-        top_n = st.selectbox(
-            "Select number of top competitors to display:",
-            options=[5, 10, 15, 20, 25],
-            index=0
-        )
-        top_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(top_n).reset_index()
-        fig_top = px.bar(
-            top_competitors,
-            x="Consignee",
-            y="Tons",
-            title=f"Top {top_n} Competitors by Tons",
-            labels={"Tons": "Total Tons"},
-            text_auto=True,
-            color="Tons"
-        )
-        st.plotly_chart(fig_top, use_container_width=True)
+def logout_button():
+    """
+    Display a logout button that clears the session and refreshes the app.
+    """
+    if st.sidebar.button("🔓 Logout"):
+        st.session_state.clear()
+        st.rerun()  # Refresh the app
 
-    # ---------------------------
-    # Tab 2: Exporters Breakdown
-    # ---------------------------
-    with tab_export:
-        st.subheader("Exporters Breakdown for Selected Competitor")
-        # Create a candidate list: top 10 competitors by volume.
-        candidate_competitors = (
-            data.groupby("Consignee")["Tons"]
-            .sum()
-            .nlargest(10)
-            .reset_index()["Consignee"]
-            .tolist()
-        )
-        selected_competitor = st.selectbox("Select a Competitor:", candidate_competitors)
-        comp_data = data[data["Consignee"] == selected_competitor]
-        exporter_breakdown = comp_data.groupby("Exporter")["Tons"].sum().reset_index().sort_values(by="Tons", ascending=False)
-        st.markdown(f"### Exporters for {selected_competitor}")
-        fig_export = px.bar(
-            exporter_breakdown,
-            x="Exporter",
-            y="Tons",
-            title=f"Exporters for {selected_competitor}",
-            labels={"Tons": "Total Tons"},
-            text_auto=True,
-            color="Tons"
-        )
-        st.plotly_chart(fig_export, use_container_width=True)
-        st.markdown("#### Detailed Exporters Data")
-        st.dataframe(exporter_breakdown)
+# -----------------------------------------------------------------------------
+# Data Ingestion & Preprocessing
+# -----------------------------------------------------------------------------
+def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean and convert numeric columns by removing commas and trimming spaces.
+    Only the 'Tons' column is used.
+    """
+    numeric_cols = ["Tons"]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.replace(",", "", regex=False).str.strip()
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df.convert_dtypes()
 
-    # ---------------------------
-    # Tab 3: Growth & Trends
-    # ---------------------------
-    with tab_growth:
-        st.subheader("Competitor Trends Over Time")
-        # Overall time series chart for all competitors
-        trends_df = data.groupby(["Consignee", "Period"])["Tons"].sum().unstack(fill_value=0)
-        st.line_chart(trends_df)
-        
-        # Drill-down: Select a competitor for detailed growth analysis.
-        candidate_competitors_growth = (
-            data.groupby("Consignee")["Tons"]
-            .sum()
-            .nlargest(10)
-            .reset_index()["Consignee"]
-            .tolist()
-        )
-        selected_for_growth = st.selectbox("Select Competitor for Detailed Growth Analysis:", candidate_competitors_growth)
-        comp_trend = data[data["Consignee"] == selected_for_growth].groupby("Period")["Tons"].sum()
-        growth_pct = comp_trend.pct_change() * 100
-        growth_df = pd.DataFrame({"Period": growth_pct.index, "Percentage Change (%)": growth_pct.values}).reset_index(drop=True)
-        st.markdown(f"#### Period-over-Period Growth for {selected_for_growth}")
-        st.dataframe(growth_df)
+@st.cache_data(show_spinner=False)
+def load_csv_data(uploaded_file) -> pd.DataFrame:
+    """
+    Load CSV data using pandas with caching.
+    """
+    try:
+        df = pd.read_csv(uploaded_file, low_memory=False)
+    except Exception as e:
+        st.error(f"🚨 Error processing CSV file: {e}")
+        logger.error("Error in load_csv_data: %s", e)
+        df = pd.DataFrame()
+    return df
 
-    st.success("✅ Competitor Intelligence Dashboard Loaded Successfully!")
+def upload_data():
+    """
+    Handle data upload from CSV or Google Sheets, preprocess it,
+    and store both the raw and filtered data in session_state.
+    """
+    st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
+    upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
+    df = None
+
+    if upload_option == "Upload CSV":
+        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload your CSV file containing your data.")
+        if uploaded_file is not None:
+            df = load_csv_data(uploaded_file)
+    else:
+        sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
+        sheet_name = config.DEFAULT_SHEET_NAME
+        if sheet_url and st.button("Load Google Sheet"):
+            try:
+                sheet_id = sheet_url.split("/d/")[1].split("/")[0]
+                csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+                response = requests.get(csv_url)
+                response.raise_for_status()
+                df = pd.read_csv(StringIO(response.text), low_memory=False)
+            except Exception as e:
+                st.error(f"🚨 Error loading Google Sheet: {e}")
+                logger.error("Error loading Google Sheet: %s", e)
+
+    if df is not None and not df.empty:
+        df = preprocess_data(df)
+        st.session_state["uploaded_data"] = df
+        filtered_df, _ = apply_filters(df)
+        st.session_state["filtered_data"] = filtered_df
+        st.success("✅ Data loaded and filtered successfully!")
+        logger.info("Data uploaded and preprocessed successfully.")
+    else:
+        st.info("No data loaded yet. Please upload a file or provide a valid Google Sheet link.")
+    return df
+
+def display_data_preview(df: pd.DataFrame):
+    """
+    Display the first 50 rows and summary statistics of the data.
+    """
+    st.markdown("### 🔍 Data Preview (First 50 Rows)")
+    st.dataframe(df.head(50))
+    st.markdown("### 📊 Data Summary")
+    st.write(df.describe(include="all"))
+
+def get_current_data():
+    """
+    Return the filtered data if available; otherwise, return the raw uploaded data.
+    """
+    return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
+
+# -----------------------------------------------------------------------------
+# Custom CSS and Header
+# -----------------------------------------------------------------------------
+def add_custom_css():
+    custom_css = """
+    <style>
+        .main .block-container {
+            padding: 1rem 2rem;
+        }
+        header {
+            background-color: #1B4F72;
+            padding: 10px;
+            color: white;
+            text-align: center;
+        }
+        h2 { color: #2E86C1; }
+        h1 { color: #1B4F72; }
+    </style>
+    """
+    st.markdown(custom_css, unsafe_allow_html=True)
+
+def display_header():
+    """
+    Display a persistent header with the application title and current view.
+    """
+    current_tab = st.session_state.get("current_tab", "Upload Data")
+    st.markdown(f"<header><h1>Import/Export Analytics Dashboard</h1><p>Current View: {current_tab}</p></header>", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# Main Application & Navigation
+# -----------------------------------------------------------------------------
+def main():
+    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
+    add_custom_css()
+    display_header()  # Display header once at the top
+
+    # Authenticate the user
+    authenticate_user()
+    logout_button()
+
+    # Use a dropdown (selectbox) for navigation
+    tabs = [
+        "Upload Data", 
+        "Market Overview", 
+        "Competitor Intelligence", 
+        "Supplier Performance", 
+        "State-Level Market Insights", 
+        "Product Insights",  
+        "AI-Based Alerts & Forecasting", 
+        "Reporting & Data Exports"
+    ]
+    current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
+    st.session_state["current_tab"] = current_tab
+
+    # Update global filter if data exists
+    if "uploaded_data" in st.session_state:
+        filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
+        st.session_state["filtered_data"] = filtered_df
+
+    # Route to the selected dashboard page
+    try:
+        if current_tab == "Upload Data":
+            df = upload_data()
+            if "uploaded_data" in st.session_state:
+                display_data_preview(st.session_state["uploaded_data"])
+                csv_data = st.session_state["uploaded_data"].to_csv(index=False).encode("utf-8")
+                st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv")
+        elif current_tab == "Market Overview":
+            market_overview_dashboard(get_current_data())
+        elif current_tab == "Competitor Intelligence":
+            competitor_intelligence_dashboard(get_current_data())
+        elif current_tab == "Supplier Performance":
+            supplier_performance_dashboard(get_current_data())
+        elif current_tab == "State-Level Market Insights":
+            state_level_market_insights(get_current_data())
+        elif current_tab == "AI-Based Alerts & Forecasting":
+            ai_based_alerts_forecasting(get_current_data())
+        elif current_tab == "Reporting & Data Exports":
+            reporting_data_exports(get_current_data())
+        elif current_tab == "Product Insights":
+            product_insights_dashboard(get_current_data())
+    except Exception as e:
+        st.error(f"🚨 An error occurred: {e}")
+        logger.exception("Error in main routing: %s", e)
+
+if __name__ == "__main__":
+    main()
