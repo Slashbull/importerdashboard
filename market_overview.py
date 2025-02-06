@@ -2,158 +2,78 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-def market_overview_dashboard(data: pd.DataFrame):
-    st.title("📊 Market Overview Dashboard")
+def competitor_intelligence_dashboard(data: pd.DataFrame):
+    st.title("🤝 Competitor Intelligence Dashboard")
     
-    # ---------------------------
-    # Data & Column Validation
-    # ---------------------------
-    if data is None or data.empty:
-        st.warning("⚠️ No data available. Please upload a dataset first.")
-        return
-
-    required_columns = [
-        "SR NO.", "Job No.", "Consignee", "Exporter",
-        "Mark", "Tons", "Month", "Year", "Consignee State"
-    ]
+    # Validate that required columns exist
+    required_columns = ["Consignee", "Exporter", "Mark", "Tons", "Month", "Year"]
     missing = [col for col in required_columns if col not in data.columns]
     if missing:
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
+    if data.empty:
+        st.warning("⚠️ No data available. Please upload a dataset first.")
+        return
 
-    # Convert Tons to numeric (if not already)
+    # Ensure Tons is numeric
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
-
-    # Define month ordering for proper sorting
-    month_order = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                   "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
     
-    # Create a "Period" column (Month-Year) if not already present
+    # Create a Period column if not already present (for time-series analysis)
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
+    # Layout: Two main tabs – Overview and Detailed Trends
+    tab_overview, tab_trends = st.tabs(["Overview", "Detailed Trends"])
+    
     # ---------------------------
-    # Tabbed Layout: Summary, Trends, and Breakdown
+    # Tab 1: Overview
     # ---------------------------
-    tab_summary, tab_trends, tab_breakdown = st.tabs(["Summary", "Trends", "Breakdown"])
-
-    # ---------------------------
-    # Tab 1: Summary – Key Metrics & Overview
-    # ---------------------------
-    with tab_summary:
-        st.subheader("Key Performance Indicators")
-        total_imports = data["Tons"].sum()
-        unique_consignees = data["Consignee"].nunique()
-        unique_exporters = data["Exporter"].nunique()
-        avg_imports = total_imports / unique_consignees if unique_consignees > 0 else 0
-        
-        # Calculate Month-over-Month Growth
-        monthly_data = data.groupby("Month")["Tons"].sum().reset_index()
-        monthly_data["Month_Order"] = monthly_data["Month"].map(month_order)
-        monthly_data = monthly_data.sort_values("Month_Order")
-        if monthly_data.shape[0] >= 2 and monthly_data["Tons"].iloc[-2] != 0:
-            mom_growth = ((monthly_data["Tons"].iloc[-1] - monthly_data["Tons"].iloc[-2]) /
-                          monthly_data["Tons"].iloc[-2]) * 100
-        else:
-            mom_growth = 0
-
-        col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("Total Imports (Tons)", f"{total_imports:,.2f}")
-        col2.metric("Unique Consignees", unique_consignees)
-        col3.metric("Unique Exporters", unique_exporters)
-        col4.metric("Avg Tons per Consignee", f"{avg_imports:,.2f}")
-        col5.metric("MoM Growth (%)", f"{mom_growth:,.2f}")
-
-        st.markdown("---")
-        st.subheader("Market Share Overview")
-        # Pie chart for Consignee Market Share
-        cons_share = data.groupby("Consignee")["Tons"].sum().reset_index()
-        fig_pie = px.pie(
-            cons_share, names="Consignee", values="Tons",
-            title="Market Share by Consignee",
-            hole=0.4  # Donut style
+    with tab_overview:
+        st.subheader("Top Competitors Overview")
+        # Compute top competitors by total Tons (grouped by Consignee)
+        top_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(5).reset_index()
+        fig_bar = px.bar(
+            top_competitors,
+            x="Consignee",
+            y="Tons",
+            title="Top 5 Competitors by Tons",
+            labels={"Tons": "Total Tons"},
+            text_auto=True,
+            color="Tons"
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
-
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+        st.markdown("---")
+        st.subheader("Hierarchical Contribution (Sunburst)")
+        st.markdown("The sunburst chart below shows the hierarchical breakdown by competitor (Consignee) and product category (derived from Mark).")
+        # For a hierarchical view, we use a sunburst chart.
+        # We'll use 'Consignee' as the parent and 'Exporter' as the child level.
+        # (Optionally, if your filters have created a 'Product' column, you could add that as an additional level.)
+        fig_sun = px.sunburst(
+            data,
+            path=["Consignee", "Exporter"],
+            values="Tons",
+            title="Sunburst: Competitor → Exporter",
+            color="Tons",
+            color_continuous_scale="Blues",
+            hover_data={"Tons": True}
+        )
+        st.plotly_chart(fig_sun, use_container_width=True)
+    
     # ---------------------------
-    # Tab 2: Trends – Time Series Analysis
+    # Tab 2: Detailed Trends
     # ---------------------------
     with tab_trends:
-        st.subheader("Overall Monthly Trends")
-        monthly_trends = data.groupby("Month")["Tons"].sum().reset_index()
-        monthly_trends["Month_Order"] = monthly_trends["Month"].map(month_order)
-        monthly_trends = monthly_trends.sort_values("Month_Order")
-        fig_line = px.line(
-            monthly_trends,
-            x="Month", y="Tons",
-            title="Monthly Import Trends",
-            markers=True
-        )
-        st.plotly_chart(fig_line, use_container_width=True)
-        
-        # If data spans multiple years, provide a breakdown by Year
-        if data["Year"].nunique() > 1:
-            st.markdown("#### Trends by Year")
-            yearly_trends = data.groupby(["Year", "Month"])["Tons"].sum().reset_index()
-            yearly_trends["Month_Order"] = yearly_trends["Month"].map(month_order)
-            yearly_trends = yearly_trends.sort_values("Month_Order")
-            fig_yearly = px.line(
-                yearly_trends,
-                x="Month", y="Tons",
-                color="Year",
-                title="Monthly Trends by Year",
-                markers=True
-            )
-            st.plotly_chart(fig_yearly, use_container_width=True)
-
-    # ---------------------------
-    # Tab 3: Breakdown – Top Entities & Importer/Exporter Contribution
-    # ---------------------------
-    with tab_breakdown:
-        st.subheader("Top Entities")
-        colA, colB = st.columns(2)
-        with colA:
-            st.markdown("**Top 5 Competitors (Consignees)**")
-            top_consignees = data.groupby("Consignee")["Tons"].sum().nlargest(5).reset_index()
-            fig_top_comp = px.bar(
-                top_consignees,
-                x="Consignee", y="Tons",
-                title="Top 5 Competitors",
-                labels={"Tons": "Total Tons"},
-                text_auto=True,
-                color="Tons"
-            )
-            st.plotly_chart(fig_top_comp, use_container_width=True)
-        with colB:
-            st.markdown("**Top 5 Exporters**")
-            top_exporters = data.groupby("Exporter")["Tons"].sum().nlargest(5).reset_index()
-            fig_top_exp = px.bar(
-                top_exporters,
-                x="Exporter", y="Tons",
-                title="Top 5 Exporters",
-                labels={"Tons": "Total Tons"},
-                text_auto=True,
-                color="Tons"
-            )
-            st.plotly_chart(fig_top_exp, use_container_width=True)
+        st.subheader("Competitor Performance Over Time")
+        # Create a pivot table of Tons by Consignee and Period
+        trends_df = data.groupby(["Consignee", "Period"])["Tons"].sum().unstack(fill_value=0)
+        st.line_chart(trends_df)
         
         st.markdown("---")
-        st.subheader("Importer/Exporter Contribution")
-        st.markdown("This chart shows, for each importer (Consignee), the contribution (in Tons) from each exporter.")
-        # Group by Consignee and Exporter
-        contrib = data.groupby(["Consignee", "Exporter"])["Tons"].sum().reset_index()
-        fig_stacked = px.bar(
-            contrib,
-            x="Consignee", y="Tons",
-            color="Exporter",
-            title="Stacked Contribution by Importer",
-            labels={"Tons": "Total Tons"},
-            text_auto=True
-        )
-        st.plotly_chart(fig_stacked, use_container_width=True)
-        
-        st.markdown("#### Contribution Pivot Table")
-        pivot_table = contrib.pivot(index="Consignee", columns="Exporter", values="Tons").fillna(0)
-        st.dataframe(pivot_table)
-
-    st.success("✅ Market Overview Dashboard Loaded Successfully!")
+        st.subheader("Period-over-Period Percentage Change")
+        # Calculate the percentage change along the period axis for each competitor
+        pct_change_df = trends_df.pct_change(axis=1) * 100
+        pct_change_df = pct_change_df.round(2)
+        st.dataframe(pct_change_df)
+    
+    st.success("✅ Competitor Intelligence Dashboard Loaded Successfully!")
