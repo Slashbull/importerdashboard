@@ -75,7 +75,7 @@ def logout_button():
     """
     if st.sidebar.button("🔓 Logout", key="logout_button"):
         st.session_state.clear()
-        st.rerun()
+        st.rerun()  # Refresh the app
 
 # -----------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
@@ -108,7 +108,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both the raw and filtered data in session_state.
+    and store both raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0, key="upload_option")
@@ -192,13 +192,13 @@ def display_header():
 def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
-    display_header()
+    display_header()  # Display header once at the top
 
     # Authenticate the user
     authenticate_user()
     logout_button()
 
-    # Navigation: Use a selectbox for switching between dashboards.
+    # Navigation: Use a dropdown (selectbox) for switching between dashboards.
     tabs = [
         "Upload Data", 
         "Market Overview", 
