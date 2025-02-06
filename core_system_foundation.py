@@ -50,7 +50,8 @@ if tab_selection == "Upload Data":
                 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
                 response = requests.get(csv_url)
                 response.raise_for_status()
-                df = pd.read_csv(pd.compat.StringIO(response.text))
+                from io import StringIO
+df = pd.read_csv(StringIO(response.text))
                 st.session_state["uploaded_data"] = df
                 st.success(f"✅ Data loaded from sheet: {sheet_name}")
             except Exception as e:
