@@ -9,7 +9,7 @@ def market_overview_dashboard(data: pd.DataFrame):
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
 
-    # Verify required columns
+    # Check required columns
     required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", "Kgs", "Tons", "Month", "Year", "Consignee State"]
     missing = [col for col in required_columns if col not in data.columns]
     if missing:
