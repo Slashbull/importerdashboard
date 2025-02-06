@@ -28,19 +28,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using the new API
+# Query Parameters Update using st.set_query_params
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters by attempting to use st.set_query_params.
-    If that fails (e.g. on older Streamlit versions), fall back to st.experimental_set_query_params.
+    Update query parameters using st.set_query_params.
     Each parameter value is wrapped in a list if it isn’t already.
+    
+    Note: st.set_query_params is now the supported API for updating URL parameters.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
-    try:
-        st.set_query_params(**new_params)
-    except Exception as e:
-        st.experimental_set_query_params(**new_params)
+    st.set_query_params(**new_params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
