@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 from io import StringIO
 import plotly.express as px
+import logging
 
 # Import configuration and filters
 import config
@@ -16,22 +17,31 @@ from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
 from reporting_data_exports import reporting_data_exports
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Logging configuration (optional: adjust as needed)
+# -----------------------------------------------------------------------------
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# -----------------------------------------------------------------------------
 # Fallback function to update query parameters
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
     Try to update query parameters using st.set_query_params.
-    If unavailable (raising an AttributeError), fall back to st.experimental_set_query_params.
+    If unavailable, fall back to st.experimental_set_query_params.
     """
     try:
         st.set_query_params(**params)
     except AttributeError:
         st.experimental_set_query_params(**params)
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Authentication & Session Management
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 def authenticate_user():
     """
     Display a login form and validate credentials from config.
@@ -48,8 +58,10 @@ def authenticate_user():
                 st.session_state["authenticated"] = True
                 st.session_state["current_tab"] = "Upload Data"
                 update_query_params({"tab": "Upload Data"})
+                logger.info("User authenticated successfully.")
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
+                logger.warning("Failed login attempt.")
         st.stop()
 
 def logout_button():
@@ -60,9 +72,9 @@ def logout_button():
         st.session_state.clear()
         st.rerun()  # Use st.rerun() to refresh the app
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
@@ -84,6 +96,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
         df = pd.read_csv(uploaded_file, low_memory=False)
     except Exception as e:
         st.error(f"🚨 Error processing CSV file: {e}")
+        logger.error("Error in load_csv_data: %s", e)
         df = pd.DataFrame()
     return df
 
@@ -112,6 +125,7 @@ def upload_data():
                 df = pd.read_csv(StringIO(response.text), low_memory=False)
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
+                logger.error("Error loading Google Sheet: %s", e)
 
     if df is not None and not df.empty:
         df = preprocess_data(df)
@@ -120,6 +134,7 @@ def upload_data():
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
+        logger.info("Data uploaded and preprocessed successfully.")
     else:
         st.info("No data loaded yet. Please upload a file or provide a valid Google Sheet link.")
     return df
@@ -139,14 +154,20 @@ def get_current_data():
     """
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
-# ---------------------------------------------------------------------------
-# Custom CSS for a Polished Look
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Custom CSS and Header for a Polished Look
+# -----------------------------------------------------------------------------
 def add_custom_css():
     custom_css = """
     <style>
         .main .block-container {
             padding: 1rem 2rem;
+        }
+        header {
+            background-color: #1B4F72;
+            padding: 10px;
+            color: white;
+            text-align: center;
         }
         h2 { color: #2E86C1; }
         h1 { color: #1B4F72; }
@@ -154,14 +175,22 @@ def add_custom_css():
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
+def display_header():
+    """
+    Display a persistent header with the application title and current tab breadcrumb.
+    """
+    current_tab = st.session_state.get("current_tab", "Upload Data")
+    st.markdown(f"<header><h1>Import/Export Analytics Dashboard</h1><p>Current View: {current_tab}</p></header>", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
 # Main Application & Navigation
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
+    display_header()
 
-    # Authenticate the user
+    # Authenticate user
     authenticate_user()
     logout_button()
 
@@ -178,48 +207,37 @@ def main():
     current_tab = st.sidebar.radio("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # If data exists, show the global filter panel
+    # Update header breadcrumb
+    display_header()
+
+    # If data exists, update global filter
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the selected dashboard page
-    if current_tab == "Upload Data":
-        df = upload_data()
-        if "uploaded_data" in st.session_state:
-            display_data_preview(st.session_state["uploaded_data"])
-            csv_data = st.session_state["uploaded_data"].to_csv(index=False).encode("utf-8")
-            st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv")
-    elif current_tab == "Market Overview":
-        try:
+    # Route to the selected dashboard
+    try:
+        if current_tab == "Upload Data":
+            df = upload_data()
+            if "uploaded_data" in st.session_state:
+                display_data_preview(st.session_state["uploaded_data"])
+                csv_data = st.session_state["uploaded_data"].to_csv(index=False).encode("utf-8")
+                st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv")
+        elif current_tab == "Market Overview":
             market_overview_dashboard(get_current_data())
-        except Exception as e:
-            st.error(f"🚨 Error loading Market Overview Dashboard: {e}")
-    elif current_tab == "Competitor Intelligence":
-        try:
+        elif current_tab == "Competitor Intelligence":
             competitor_intelligence_dashboard(get_current_data())
-        except Exception as e:
-            st.error(f"🚨 Error loading Competitor Intelligence Dashboard: {e}")
-    elif current_tab == "Supplier Performance":
-        try:
+        elif current_tab == "Supplier Performance":
             supplier_performance_dashboard(get_current_data())
-        except Exception as e:
-            st.error(f"🚨 Error loading Supplier Performance Dashboard: {e}")
-    elif current_tab == "State-Level Market Insights":
-        try:
+        elif current_tab == "State-Level Market Insights":
             state_level_market_insights(get_current_data())
-        except Exception as e:
-            st.error(f"🚨 Error loading State-Level Market Insights Dashboard: {e}")
-    elif current_tab == "AI-Based Alerts & Forecasting":
-        try:
+        elif current_tab == "AI-Based Alerts & Forecasting":
             ai_based_alerts_forecasting(get_current_data())
-        except Exception as e:
-            st.error(f"🚨 Error loading AI-Based Alerts & Forecasting Dashboard: {e}")
-    elif current_tab == "Reporting & Data Exports":
-        try:
+        elif current_tab == "Reporting & Data Exports":
             reporting_data_exports(get_current_data())
-        except Exception as e:
-            st.error(f"🚨 Error loading Reporting & Data Exports Dashboard: {e}")
+    except Exception as e:
+        st.error(f"🚨 An error occurred: {e}")
+        logger.exception("Error in main routing: %s", e)
 
 if __name__ == "__main__":
     main()
