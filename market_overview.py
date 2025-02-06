@@ -33,12 +33,12 @@ def market_overview_dashboard(data: pd.DataFrame):
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
     # ---------------------------
-    # Tabbed Layout: Summary, Trends, and Breakdown
+    # Tabbed Layout: Summary, Trends, Breakdown
     # ---------------------------
     tab_summary, tab_trends, tab_breakdown = st.tabs(["Summary", "Trends", "Breakdown"])
 
     # ---------------------------
-    # Tab 1: Summary – Key Metrics & Overview
+    # Tab 1: Summary – Key Metrics & Market Share Overview
     # ---------------------------
     with tab_summary:
         st.subheader("Key Performance Indicators")
@@ -137,22 +137,26 @@ def market_overview_dashboard(data: pd.DataFrame):
         
         st.markdown("---")
         st.subheader("Importer/Exporter Contribution")
-        st.markdown("This sunburst chart shows, in a hierarchical way, how each importer (Consignee) is connected with various exporters, with segment size representing the Tons.")
-        # Group data for the sunburst chart
+        st.markdown(
+            "This treemap provides a hierarchical view of how each importer (Consignee) is connected with various exporters. "
+            "Segment size represents the total Tons."
+        )
+        # Create a treemap: path first level is Consignee, then Exporter
         contribution = data.groupby(["Consignee", "Exporter"])["Tons"].sum().reset_index()
-        fig_sunburst = px.sunburst(
+        fig_treemap = px.treemap(
             contribution,
             path=["Consignee", "Exporter"],
             values="Tons",
-            title="Importer/Exporter Contribution",
+            title="Importer/Exporter Contribution Treemap",
             color="Tons",
             color_continuous_scale="Blues",
             hover_data={"Tons": True}
         )
-        st.plotly_chart(fig_sunburst, use_container_width=True)
+        st.plotly_chart(fig_treemap, use_container_width=True)
         
-        st.markdown("#### Detailed Contribution Data")
-        pivot_table = contribution.pivot(index="Consignee", columns="Exporter", values="Tons").fillna(0)
-        st.dataframe(pivot_table)
+        st.markdown("#### Detailed Contribution Table")
+        # Instead of a pivot table that can get cluttered, show a simplified table:
+        simple_table = contribution.sort_values("Tons", ascending=False)
+        st.dataframe(simple_table)
 
     st.success("✅ Market Overview Dashboard Loaded Successfully!")
