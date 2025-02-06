@@ -34,7 +34,7 @@ def authenticate_user():
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
                 st.session_state["current_tab"] = "Upload Data"
-                st.experimental_set_query_params(tab="Upload Data")
+                st.query_params(tab="Upload Data")
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
         st.stop()
