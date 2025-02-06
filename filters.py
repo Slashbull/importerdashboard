@@ -58,8 +58,9 @@ def classify_mark(mark: str, candidate_categories: list = None, threshold: int =
 
 def apply_filters(df: pd.DataFrame):
     """
-    Applies global filters to the DataFrame with real-time feedback and displays an
-    active filters summary. For each filter, an "All" option is provided by default.
+    Applies global filters to the DataFrame with real-time feedback. For each filter,
+    an "All" option is provided by default. If the user deselects all options, the filter
+    defaults to the full list of unique values.
     
     Filters are applied for:
       - Consignee State
@@ -69,11 +70,9 @@ def apply_filters(df: pd.DataFrame):
       - Exporter
       - Product (automatically classified from the "Mark" column)
       
-    If a user deselects all options for any filter, it automatically defaults to the full list.
-    
     Returns:
       - The filtered DataFrame.
-      - The unit column (fixed as "Tons").
+      - The unit column (which is fixed as "Tons").
     """
     st.sidebar.header("🔍 Global Data Filters")
     
@@ -108,7 +107,6 @@ def apply_filters(df: pd.DataFrame):
     # --- Filter by Year ---
     if "Year" in df.columns:
         years = sorted(df["Year"].dropna().unique().tolist())
-        # Convert years to strings for display purposes.
         year_options = ["All"] + [str(y) for y in years]
         selected_years = st.sidebar.multiselect("📆 Select Year:", options=year_options, default=["All"])
         if "All" in selected_years:
@@ -141,9 +139,8 @@ def apply_filters(df: pd.DataFrame):
 
     # --- Filter by Product ---
     if "Mark" in df.columns:
-        # If the "Product" column doesn't exist, generate it automatically.
+        # Create Product column if not already present.
         if "Product" not in df.columns:
-            # Generate candidate categories automatically.
             candidate_categories = generate_candidate_categories(df, num_clusters=5)
             df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
         products = sorted(df["Product"].dropna().unique().tolist())
@@ -154,13 +151,13 @@ def apply_filters(df: pd.DataFrame):
         selected_products = ensure_selection(selected_products, products)
     else:
         selected_products = []
-    
+
     # Define the unit column (fixed as "Tons")
     unit_column = "Tons"
     if unit_column in df.columns:
         df[unit_column] = pd.to_numeric(df[unit_column], errors='coerce')
     
-    # Apply filters (with a loading spinner)
+    # Apply filters with a spinner
     with st.spinner("Applying filters..."):
         filtered_df = df.copy()
         if "Consignee State" in df.columns:
@@ -176,18 +173,4 @@ def apply_filters(df: pd.DataFrame):
         if "Product" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
     
-    # Display an active filters summary in the sidebar.
-    active_filters = {
-        "State": selected_states,
-        "Month": selected_months,
-        "Year": selected_years,
-        "Consignee": selected_consignees,
-        "Exporter": selected_exporters,
-        "Product": selected_products,
-    }
-    summary_text = "Active Filters:\n\n"
-    for key, value in active_filters.items():
-        summary_text += f"- **{key}**: {', '.join(map(str, value))}\n"
-    st.sidebar.markdown(summary_text)
-
     return filtered_df, unit_column
