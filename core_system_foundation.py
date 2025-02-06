@@ -60,8 +60,22 @@ if tab_selection == "Upload Data":
         uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"], help="Upload a CSV file containing import data.")
         if uploaded_file is not None:
             df = pd.read_csv(uploaded_file)
+            
+            # Standardize Month Names
+            month_map = {"Jan": "Jan", "Feb": "Feb", "Mar": "Mar", "Apr": "Apr", "May": "May", "Jun": "Jun", "Jul": "Jul", "Aug": "Aug", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dec"}
+            if "Month" in df.columns:
+                df["Month"] = df["Month"].astype(str).map(month_map)
+            
+            # Ensure Column Consistency
+            if "Consignee State" in df.columns:
+                df.rename(columns={"Consignee State": "State"}, inplace=True)
+            
+            # Drop Unnecessary Columns
+            if "SR NO." in df.columns:
+                df.drop(columns=["SR NO."], inplace=True)
+            
             st.session_state["uploaded_data"] = df
-            st.success("✅ File uploaded successfully! Redirecting...")
+            st.success("✅ File uploaded and cleaned successfully! Redirecting...")
             st.experimental_rerun()
     
     elif upload_option == "Google Sheet Link":
@@ -72,8 +86,21 @@ if tab_selection == "Upload Data":
                 sheet_id = sheet_url.split("/d/")[1].split("/")[0]
                 url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
                 df = pd.read_csv(url)
+                
+                # Standardize Month Names
+                if "Month" in df.columns:
+                    df["Month"] = df["Month"].astype(str).map(month_map)
+                
+                # Ensure Column Consistency
+                if "Consignee State" in df.columns:
+                    df.rename(columns={"Consignee State": "State"}, inplace=True)
+                
+                # Drop Unnecessary Columns
+                if "SR NO." in df.columns:
+                    df.drop(columns=["SR NO."], inplace=True)
+                
                 st.session_state["uploaded_data"] = df
-                st.success(f"✅ Data loaded from sheet: {sheet_name}. Redirecting...")
+                st.success(f"✅ Data loaded and cleaned from sheet: {sheet_name}. Redirecting...")
                 st.experimental_rerun()
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
