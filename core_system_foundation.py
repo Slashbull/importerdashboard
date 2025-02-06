@@ -4,6 +4,7 @@ import requests
 from io import StringIO
 from market_overview import market_overview_dashboard
 from competitor_intelligence_dashboard import competitor_intelligence_dashboard
+from supplier_performance_dashboard import supplier_performance_dashboard
 
 # ---- Core System Foundation (Future-Ready Design) ---- #
 
@@ -19,7 +20,7 @@ if not st.session_state["authenticated"]:
         if username == "admin" and password == "admin123":
             st.session_state["authenticated"] = True
             st.session_state["current_tab"] = "Upload Data"
-            st.experimental_set_query_params(tab="Upload Data")
+            st.query_params(tab="Upload Data")
         else:
             st.sidebar.error("🚨 Invalid Username or Password")
     st.stop()
@@ -28,7 +29,7 @@ st.sidebar.success("✅ Logged in")
 st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
 
 # Navigation
-tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence"])
+tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance"])
 
 if tab_selection == "Upload Data":
     # ---- Upload Data Page ---- #
@@ -113,3 +114,9 @@ elif tab_selection == "Competitor Intelligence":
         competitor_intelligence_dashboard()
     except Exception as e:
         st.error(f"🚨 Error loading Competitor Intelligence Dashboard: {e}")
+
+elif tab_selection == "Supplier Performance":
+    try:
+        supplier_performance_dashboard()
+    except Exception as e:
+        st.error(f"🚨 Error loading Supplier Performance Dashboard: {e}")
