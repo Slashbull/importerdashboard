@@ -85,7 +85,7 @@ def apply_filters(df: pd.DataFrame):
     """
     st.sidebar.header("🔍 Global Data Filters")
 
-    # Helper function to return the full list if selection is empty or contains "All"
+    # Helper function to return the full list if selection is empty or "All" is selected.
     def ensure_selection(selected, full_list):
         if not selected or "All" in selected:
             return full_list
@@ -97,8 +97,8 @@ def apply_filters(df: pd.DataFrame):
     full_years = sorted([str(y) for y in df["Year"].dropna().unique().tolist()]) if "Year" in df.columns else []
     full_consignees = sorted(df["Consignee"].dropna().unique().tolist()) if "Consignee" in df.columns else []
     full_exporters = sorted(df["Exporter"].dropna().unique().tolist()) if "Exporter" in df.columns else []
-
-    # For product classification, ensure the "Product" column exists.
+    
+    # Ensure that the "Product" column exists.
     if "Mark" in df.columns and "Product" not in df.columns:
         candidate_categories = generate_candidate_categories(df, num_clusters=5)
         df["Product"] = df["Mark"].apply(lambda x: classify_mark(x, candidate_categories))
