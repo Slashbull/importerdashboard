@@ -17,7 +17,7 @@ def market_overview_dashboard(df):
         return
 
     # ---- Key Metrics ---- #
-    total_imports = df["Quanity (Kgs)"].sum() if "Quanity (Kgs)" in df.columns else 0
+    total_imports = pd.to_numeric(df["Quanity (Kgs)"], errors='coerce').sum() if "Quanity (Kgs)" in df.columns else 0
     unique_suppliers = df["Exporter"].nunique() if "Exporter" in df.columns else 0
     unique_competitors = df["Consignee"].nunique() if "Consignee" in df.columns else 0
     top_state = df.groupby("Consignee State")["Quanity (Kgs)"].sum().idxmax() if "Consignee State" in df.columns else "N/A"
@@ -38,14 +38,16 @@ def market_overview_dashboard(df):
     # ---- Top 5 Competitors ---- #
     if "Consignee" in df.columns and "Quanity (Kgs)" in df.columns:
         st.subheader("🏆 Top 5 Importing Competitors")
-        top_competitors = df.groupby("Consignee")["Quanity (Kgs)"].sum().nlargest(5).reset_index()
+        top_competitors = df.groupby("Consignee")["Quanity (Kgs)"].sum().reset_index()
+top_competitors = top_competitors.nlargest(5, "Quanity (Kgs)", "all")
         fig = px.bar(top_competitors, x="Consignee", y="Quanity (Kgs)", title="Top 5 Importing Competitors")
         st.plotly_chart(fig, use_container_width=True)
 
     # ---- Top 5 Suppliers ---- #
     if "Exporter" in df.columns and "Quanity (Kgs)" in df.columns:
         st.subheader("🏭 Top 5 Suppliers by Import Volume")
-        top_suppliers = df.groupby("Exporter")["Quanity (Kgs)"].sum().nlargest(5).reset_index()
+        top_suppliers = df.groupby("Exporter")["Quanity (Kgs)"].sum().reset_index()
+top_suppliers = top_suppliers.nlargest(5, "Quanity (Kgs)", "all")
         fig = px.bar(top_suppliers, x="Exporter", y="Quanity (Kgs)", title="Top 5 Suppliers")
         st.plotly_chart(fig, use_container_width=True)
 
