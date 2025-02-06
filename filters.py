@@ -27,7 +27,7 @@ def classify_mark(mark: str, threshold: int = 70) -> str:
 def apply_filters(df: pd.DataFrame):
     """
     Applies global filters to the DataFrame with real-time feedback and displays an
-    active filters summary.
+    active filters summary. If a user deselects all options for a filter, it defaults to "All".
     
     Filters are provided for:
       - Consignee State
@@ -37,8 +37,8 @@ def apply_filters(df: pd.DataFrame):
       - Exporter
       - Product (automatically classified from the "Mark" column)
       
-    Each filter includes an "All" option by default. When "All" is selected, the filter
-    uses the full list of unique values.
+    Each filter includes an "All" option by default. If "All" is selected or if the selection is empty,
+    the filter uses the full list of unique values.
     
     Returns:
       - The filtered DataFrame.
@@ -46,6 +46,12 @@ def apply_filters(df: pd.DataFrame):
     """
     st.sidebar.header("🔍 Global Data Filters")
     
+    # Helper function: if selection is empty, return full list.
+    def ensure_selection(selected, full_list):
+        if not selected or len(selected) == 0:
+            return full_list
+        return selected
+
     # Filter by Consignee State
     if "Consignee State" in df.columns:
         states = sorted(df["Consignee State"].dropna().unique().tolist())
@@ -53,6 +59,7 @@ def apply_filters(df: pd.DataFrame):
         selected_states = st.sidebar.multiselect("📌 Select State:", options=state_options, default=["All"])
         if "All" in selected_states:
             selected_states = states
+        selected_states = ensure_selection(selected_states, states)
     else:
         selected_states = []
     
@@ -63,6 +70,7 @@ def apply_filters(df: pd.DataFrame):
         selected_months = st.sidebar.multiselect("📅 Select Month:", options=month_options, default=["All"])
         if "All" in selected_months:
             selected_months = months
+        selected_months = ensure_selection(selected_months, months)
     else:
         selected_months = []
     
@@ -73,6 +81,7 @@ def apply_filters(df: pd.DataFrame):
         selected_years = st.sidebar.multiselect("📆 Select Year:", options=year_options, default=["All"])
         if "All" in selected_years:
             selected_years = years
+        selected_years = ensure_selection(selected_years, years)
     else:
         selected_years = []
     
@@ -83,6 +92,7 @@ def apply_filters(df: pd.DataFrame):
         selected_consignees = st.sidebar.multiselect("🏢 Select Consignee:", options=consignee_options, default=["All"])
         if "All" in selected_consignees:
             selected_consignees = consignees
+        selected_consignees = ensure_selection(selected_consignees, consignees)
     else:
         selected_consignees = []
     
@@ -93,6 +103,7 @@ def apply_filters(df: pd.DataFrame):
         selected_exporters = st.sidebar.multiselect("🚢 Select Exporter:", options=exporter_options, default=["All"])
         if "All" in selected_exporters:
             selected_exporters = exporters
+        selected_exporters = ensure_selection(selected_exporters, exporters)
     else:
         selected_exporters = []
     
@@ -105,10 +116,11 @@ def apply_filters(df: pd.DataFrame):
         selected_products = st.sidebar.multiselect("🔖 Select Product:", options=product_options, default=["All"])
         if "All" in selected_products:
             selected_products = products
+        selected_products = ensure_selection(selected_products, products)
     else:
         selected_products = []
     
-    # We are using only the Tons column
+    # We use only the Tons column for analysis.
     unit_column = "Tons"
     if unit_column in df.columns:
         df[unit_column] = pd.to_numeric(df[unit_column], errors='coerce')
@@ -138,9 +150,9 @@ def apply_filters(df: pd.DataFrame):
         "Exporter": selected_exporters,
         "Product": selected_products,
     }
-    summary_text = "Active Filters:\n"
+    summary_text = "Active Filters:\n\n"
     for key, value in active_filters.items():
-        summary_text += f"- {key}: {', '.join(map(str, value))}\n"
+        summary_text += f"- **{key}**: {', '.join(map(str, value))}\n"
     st.sidebar.markdown(summary_text)
 
     return filtered_df, unit_column
