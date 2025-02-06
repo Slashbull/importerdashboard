@@ -16,7 +16,7 @@ from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
 from reporting_data_exports import reporting_data_exports
-from product_insights_dashboard import product_insights_dashboard  # <-- New module
+from product_insights_dashboard import product_insights_dashboard  # New module
 
 # -----------------------------------------------------------------------------
 # Logging configuration
@@ -28,17 +28,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Fallback for Query Parameters Update
+# Query Parameters Update using st.set_query_params with fallback
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Try to update query parameters using st.set_query_params.
-    If unavailable, fall back to st.experimental_set_query_params.
+    Update query parameters.
+    Each parameter value is wrapped in a list if it isn’t already.
+    Uses st.set_query_params if available; otherwise, falls back to st.experimental_set_query_params.
     """
+    new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
     try:
-        st.set_query_params(**params)
+        st.set_query_params(**new_params)
     except AttributeError:
-        st.experimental_set_query_params(**params)
+        st.experimental_set_query_params(**new_params)
+    except Exception as e:
+        logger.exception("Failed to update query parameters: %s", e)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
@@ -52,8 +56,8 @@ def authenticate_user():
 
     if not st.session_state["authenticated"]:
         st.sidebar.title("🔒 Login")
-        username = st.sidebar.text_input("👤 Username", key="login_username")
-        password = st.sidebar.text_input("🔑 Password", type="password", key="login_password")
+        username = st.sidebar.text_input("👤 Username", key="login_username", help="Enter your username.")
+        password = st.sidebar.text_input("🔑 Password", type="password", key="login_password", help="Enter your password.")
         if st.sidebar.button("🚀 Login"):
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
@@ -71,7 +75,7 @@ def logout_button():
     """
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
-        st.rerun()  # Refresh the app
+        st.rerun()
 
 # -----------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
@@ -79,7 +83,7 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
-    Only the 'Tons' column is used.
+    Only the 'Tons' column is processed.
     """
     numeric_cols = ["Tons"]
     for col in numeric_cols:
@@ -194,7 +198,7 @@ def main():
     authenticate_user()
     logout_button()
 
-    # Use a dropdown (selectbox) for navigation
+    # Navigation: Use a dropdown (selectbox) for switching between dashboards.
     tabs = [
         "Upload Data", 
         "Market Overview", 
@@ -208,12 +212,12 @@ def main():
     current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # Update global filter if data exists
+    # Update global filter if data exists.
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the selected dashboard page
+    # Route to the selected dashboard module.
     try:
         if current_tab == "Upload Data":
             df = upload_data()
@@ -229,12 +233,12 @@ def main():
             supplier_performance_dashboard(get_current_data())
         elif current_tab == "State-Level Market Insights":
             state_level_market_insights(get_current_data())
+        elif current_tab == "Product Insights":
+            product_insights_dashboard(get_current_data())
         elif current_tab == "AI-Based Alerts & Forecasting":
             ai_based_alerts_forecasting(get_current_data())
         elif current_tab == "Reporting & Data Exports":
             reporting_data_exports(get_current_data())
-        elif current_tab == "Product Insights":
-            product_insights_dashboard(get_current_data())
     except Exception as e:
         st.error(f"🚨 An error occurred: {e}")
         logger.exception("Error in main routing: %s", e)
