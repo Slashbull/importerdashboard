@@ -23,7 +23,9 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 st.sidebar.success("✅ Logged in")
-st.sidebar.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
+if "uploaded_data" in st.session_state:
+    csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
+    st.sidebar.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv")
 st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
 
 # ---- Upload Data Page ---- #
