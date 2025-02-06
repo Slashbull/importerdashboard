@@ -7,6 +7,7 @@ from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
+from reporting_data_exports import reporting_data_exports
 
 # ---- Core System Foundation (Future-Ready Design) ---- #
 
@@ -31,7 +32,7 @@ st.sidebar.success("✅ Logged in")
 st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
 
 # Navigation
-tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance", "State-Level Market Insights", "AI-Based Alerts & Forecasting"])
+tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance", "State-Level Market Insights", "AI-Based Alerts & Forecasting", "Reporting & Data Exports"])
 
 if tab_selection == "Upload Data":
     # ---- Upload Data Page ---- #
@@ -104,6 +105,7 @@ if tab_selection == "Upload Data":
                     st.session_state["csv_downloaded"] = True
             except Exception as e:
                 st.error(f"🚨 Error with download button: {e}")
+
 elif tab_selection == "Market Overview":
     try:
         market_overview_dashboard()
@@ -133,3 +135,9 @@ elif tab_selection == "AI-Based Alerts & Forecasting":
         ai_based_alerts_forecasting()
     except Exception as e:
         st.error(f"🚨 Error loading AI-Based Alerts & Forecasting Dashboard: {e}")
+
+elif tab_selection == "Reporting & Data Exports":
+    try:
+        reporting_data_exports()
+    except Exception as e:
+        st.error(f"🚨 Error loading Reporting & Data Exports Dashboard: {e}")
