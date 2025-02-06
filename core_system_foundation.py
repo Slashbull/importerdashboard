@@ -16,6 +16,7 @@ from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
 from reporting_data_exports import reporting_data_exports
+from product_insights_dashboard import product_insights_dashboard  # <-- New module
 
 # -----------------------------------------------------------------------------
 # Logging configuration
@@ -200,6 +201,7 @@ def main():
         "Competitor Intelligence", 
         "Supplier Performance", 
         "State-Level Market Insights", 
+        "Product Insights",  
         "AI-Based Alerts & Forecasting", 
         "Reporting & Data Exports"
     ]
@@ -231,6 +233,8 @@ def main():
             ai_based_alerts_forecasting(get_current_data())
         elif current_tab == "Reporting & Data Exports":
             reporting_data_exports(get_current_data())
+        elif current_tab == "Product Insights":
+            product_insights_dashboard(get_current_data())
     except Exception as e:
         st.error(f"🚨 An error occurred: {e}")
         logger.exception("Error in main routing: %s", e)
