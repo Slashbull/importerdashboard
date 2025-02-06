@@ -16,9 +16,22 @@ from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
 from reporting_data_exports import reporting_data_exports
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Fallback function to update query parameters
+# ---------------------------------------------------------------------------
+def update_query_params(params: dict):
+    """
+    Try to update query parameters using st.set_query_params.
+    If unavailable (raising an AttributeError), fall back to st.experimental_set_query_params.
+    """
+    try:
+        st.set_query_params(**params)
+    except AttributeError:
+        st.experimental_set_query_params(**params)
+
+# ---------------------------------------------------------------------------
 # Authentication & Session Management
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 def authenticate_user():
     """
     Display a login form and validate credentials from config.
@@ -34,20 +47,22 @@ def authenticate_user():
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
                 st.session_state["current_tab"] = "Upload Data"
-                st.set_query_params(tab="Upload Data")
+                update_query_params({"tab": "Upload Data"})
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
         st.stop()
 
 def logout_button():
-    """Display a logout button that clears the session and refreshes the app."""
+    """
+    Display a logout button that clears the session and refreshes the app.
+    """
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
-        st.rerun()  # Use st.rerun() instead of st.experimental_rerun()
+        st.rerun()  # Use st.rerun() to refresh the app
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
@@ -63,7 +78,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
     """
-    Load CSV data with caching.
+    Load CSV data using pandas with caching.
     """
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
@@ -124,9 +139,9 @@ def get_current_data():
     """
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Custom CSS for a Polished Look
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 def add_custom_css():
     custom_css = """
     <style>
@@ -139,9 +154,9 @@ def add_custom_css():
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Main Application & Navigation
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
