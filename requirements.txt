@@ -1,8 +1,6 @@
 streamlit
 pandas
-polars
+requests
 plotly
-gspread
-oauth2client
-gspread_dataframe
-matplotlib
+pdfkit
+python-dotenv
