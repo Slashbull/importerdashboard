@@ -28,13 +28,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using st.set_query_params with fallback
+# Query Parameters Update using st.set_query_params (with fallback)
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
     Update query parameters using st.set_query_params.
     Each parameter value is wrapped in a list if it isn’t already.
-    Uses st.set_query_params if available; otherwise, falls back to st.experimental_set_query_params.
+    If st.set_query_params is unavailable, falls back to st.experimental_set_query_params.
     """
     new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
     try:
@@ -75,7 +75,7 @@ def logout_button():
     """
     if st.sidebar.button("🔓 Logout", key="logout_button"):
         st.session_state.clear()
-        st.rerun()  # Refresh the app
+        st.rerun()
 
 # -----------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
@@ -108,7 +108,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both raw and filtered data in session_state.
+    and store both the raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0, key="upload_option")
@@ -192,13 +192,13 @@ def display_header():
 def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
-    display_header()  # Display header once at the top
+    display_header()
 
     # Authenticate the user
     authenticate_user()
     logout_button()
 
-    # Navigation: Use a dropdown (selectbox) for switching between dashboards.
+    # Navigation: Use a selectbox for switching between dashboards.
     tabs = [
         "Upload Data", 
         "Market Overview", 
