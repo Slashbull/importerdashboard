@@ -187,13 +187,13 @@ def display_header():
 def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
-    display_header()  # Display header only once
+    display_header()  # Display header once at the top
 
     # Authenticate the user
     authenticate_user()
     logout_button()
 
-    # Use a dropdown (selectbox) for navigation in the sidebar
+    # Use a dropdown (selectbox) for navigation
     tabs = [
         "Upload Data", 
         "Market Overview", 
@@ -206,15 +206,12 @@ def main():
     current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # Update header after navigation selection
-    display_header()
-
     # Update global filter if data exists
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the selected dashboard
+    # Route to the selected dashboard page
     try:
         if current_tab == "Upload Data":
             df = upload_data()
