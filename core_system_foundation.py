@@ -175,12 +175,21 @@ def add_custom_css():
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
+def display_header():
+    """
+    Display a persistent header with the application title and current view.
+    """
+    current_tab = st.session_state.get("current_tab", "Upload Data")
+    st.markdown(f"<header><h1>Import/Export Analytics Dashboard</h1><p>Current View: {current_tab}</p></header>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # Main Application & Navigation
 # -----------------------------------------------------------------------------
+def main():
+    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
+    add_custom_css()
 
-    # Authenticate user
+    # Authenticate user and manage session
     authenticate_user()
     logout_button()
 
@@ -197,10 +206,10 @@ def add_custom_css():
     current_tab = st.sidebar.radio("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # Update header breadcrumb
+    # Update header after navigation is set
     display_header()
 
-    # If data exists, update global filter
+    # Update global filter if data exists
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
