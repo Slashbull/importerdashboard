@@ -1,0 +1,9 @@
+streamlit
+pandas
+requests
+plotly
+pdfkit
+python-dotenv
+rapidfuzz
+scipy
+scikit-learn
