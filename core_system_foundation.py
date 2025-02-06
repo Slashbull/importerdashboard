@@ -5,9 +5,9 @@ from io import StringIO
 import plotly.express as px
 import logging
 
-# Import configuration and filters
+# Import configuration and the smart filters (aliased as apply_filters)
 import config
-from filters import apply_filters
+from filters import smart_apply_filters as apply_filters
 
 # Import dashboard modules
 from market_overview import market_overview_dashboard
