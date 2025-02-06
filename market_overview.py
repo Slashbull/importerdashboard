@@ -16,10 +16,6 @@ def market_overview_dashboard(df):
         st.warning("⚠️ No data available. Please upload a dataset in the core system.")
         return
 
-    # ---- Data Cleaning ---- #
-    df["Quanity (Kgs)"] = pd.to_numeric(df["Quanity (Kgs)"].str.replace(" Kgs", "", regex=False).str.replace(",", ""), errors='coerce').fillna(0)
-    df["Month"] = df["Month"].astype(str).str.strip()
-
     # ---- Sidebar Navigation ---- #
     tabs = st.sidebar.radio("Select Analysis Section:", ["Key Metrics", "Monthly Trends", "Top Competitors", "Top Suppliers", "State-Wise Analysis"])
 
