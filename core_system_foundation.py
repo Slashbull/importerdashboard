@@ -32,14 +32,27 @@ if not st.session_state["authenticated"]:
     login()
     st.stop()
 
-# ---- File Upload ---- #
+# ---- File Upload or Google Sheet Link ---- #
 st.title("📂 Upload Your Data")
-uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"])
+upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"))
 
 df = None
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.success("✅ File uploaded successfully!")
+if upload_option == "Upload CSV":
+    uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"])
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        st.success("✅ File uploaded successfully!")
+
+elif upload_option == "Google Sheet Link":
+    sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
+    if sheet_url:
+        try:
+            df = pd.read_csv(sheet_url)  # Assumes public Google Sheet as CSV format
+            st.success("✅ Google Sheet loaded successfully!")
+        except Exception as e:
+            st.error(f"🚨 Error loading Google Sheet: {e}")
+
+if df is not None:
     st.write("### 📊 Raw Data Preview")
     st.dataframe(df.head())
 
