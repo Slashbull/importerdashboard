@@ -70,7 +70,7 @@ def logout_button():
     """
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
-        st.rerun()  # Use st.rerun() to refresh the app
+        st.rerun()  # Refresh the app
 
 # -----------------------------------------------------------------------------
 # Data Ingestion & Preprocessing
@@ -188,12 +188,13 @@ def display_header():
 def main():
     st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
+    display_header()
 
-    # Authenticate user and manage session
+    # Authenticate user
     authenticate_user()
     logout_button()
 
-    # Sidebar navigation tabs
+    # Use a dropdown (selectbox) for navigation instead of a radio button
     tabs = [
         "Upload Data", 
         "Market Overview", 
@@ -203,7 +204,7 @@ def main():
         "AI-Based Alerts & Forecasting", 
         "Reporting & Data Exports"
     ]
-    current_tab = st.sidebar.radio("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
+    current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
     # Update header after navigation is set
@@ -214,7 +215,7 @@ def main():
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the selected dashboard
+    # Route to the selected dashboard page
     try:
         if current_tab == "Upload Data":
             df = upload_data()
