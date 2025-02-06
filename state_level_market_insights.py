@@ -6,7 +6,7 @@ def state_level_market_insights(data: pd.DataFrame):
     st.title("🌍 State-Level Market Insights Dashboard")
     
     # ---------------------------
-    # Data Validation
+    # Data & Column Validation
     # ---------------------------
     if data is None or data.empty:
         st.warning("⚠️ No data available. Please upload a dataset first.")
@@ -20,23 +20,23 @@ def state_level_market_insights(data: pd.DataFrame):
 
     # Convert Tons to numeric
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
-    
-    # Create a "Period" column if not already present (Month-Year)
+
+    # Create a "Period" column (Month-Year) if not already present
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
-    
-    # Define month ordering for proper sorting
+
+    # Define month ordering to sort months properly (assumes Month names are abbreviated)
     month_order = {
         "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
         "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
     }
-    
+
     # ---------------------------
-    # Tabbed Layout
+    # Tabbed Layout: Overview, Trends, Growth Analysis, Detailed Analysis
     # ---------------------------
-    tab_overview, tab_trends, tab_growth, tab_details = st.tabs([
-        "Overview", "Trends", "Growth Analysis", "Detailed Analysis"
-    ])
+    tab_overview, tab_trends, tab_growth, tab_details = st.tabs(
+        ["Overview", "Trends", "Growth Analysis", "Detailed Analysis"]
+    )
 
     # ---------------------------
     # Tab 1: Overview – KPIs & Top States
@@ -48,7 +48,6 @@ def state_level_market_insights(data: pd.DataFrame):
         num_states = state_agg["Consignee State"].nunique()
         avg_imports = total_imports / num_states if num_states > 0 else 0
 
-        # Display KPI cards in three columns with adequate spacing.
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Imports (Tons)", f"{total_imports:,.2f}")
         col2.metric("Unique States", num_states)
@@ -73,8 +72,8 @@ def state_level_market_insights(data: pd.DataFrame):
     # ---------------------------
     with tab_trends:
         st.subheader("Overall Monthly Trends by State")
-        # Aggregate data by State and Period
         trends_df = data.groupby(["Consignee State", "Period"])["Tons"].sum().reset_index()
+        # For overall trends, we use a line chart with Period on the x-axis.
         fig_trends = px.line(
             trends_df,
             x="Period",
@@ -86,9 +85,9 @@ def state_level_market_insights(data: pd.DataFrame):
         st.plotly_chart(fig_trends, use_container_width=True)
         
         st.markdown("<hr>", unsafe_allow_html=True)
-        st.subheader("Detailed Trends")
+        st.subheader("Detailed Trends for Selected States")
         all_states = sorted(data["Consignee State"].dropna().unique().tolist())
-        selected_states = st.multiselect("Select States for Detailed Analysis", options=all_states, default=all_states[:3])
+        selected_states = st.multiselect("Select States", options=all_states, default=all_states[:3])
         if selected_states:
             detailed_trends = data[data["Consignee State"].isin(selected_states)]
             detailed_df = detailed_trends.groupby(["Consignee State", "Period"])["Tons"].sum().reset_index()
@@ -109,7 +108,7 @@ def state_level_market_insights(data: pd.DataFrame):
     # ---------------------------
     with tab_growth:
         st.subheader("Growth Analysis by Period")
-        # Create a pivot table: rows = Consignee State, columns = Period, values = Tons
+        # Create a pivot table: rows = State, columns = Period, values = Tons
         pivot_table = data.pivot_table(
             index="Consignee State",
             columns="Period",
@@ -117,14 +116,13 @@ def state_level_market_insights(data: pd.DataFrame):
             aggfunc="sum",
             fill_value=0
         )
-        # Calculate period-over-period percentage changes (growth)
+        # Compute period-over-period percentage changes
         growth_pct = pivot_table.pct_change(axis=1) * 100
         growth_pct = growth_pct.round(2)
-
-        st.markdown("#### Period-over-Period Percentage Change (%) (Table)")
+        
+        st.markdown("#### Growth Percentage Table")
         st.dataframe(growth_pct)
-
-        # Create an interactive heatmap of the growth percentages
+        
         st.markdown("#### Growth Percentage Heatmap")
         fig_heat = px.imshow(
             growth_pct,
@@ -136,16 +134,16 @@ def state_level_market_insights(data: pd.DataFrame):
             title="Heatmap of Period-over-Period Growth (%)"
         )
         st.plotly_chart(fig_heat, use_container_width=True)
-
-        # Calculate the average growth per state and display it as a bar chart
+        
+        # Calculate the average growth per state and show a bar chart
         avg_growth = growth_pct.mean(axis=1).reset_index()
         avg_growth.columns = ["Consignee State", "Average Growth (%)"]
-        st.markdown("#### Average Period-over-Period Growth by State")
+        st.markdown("#### Average Growth by State")
         fig_avg = px.bar(
             avg_growth,
             x="Consignee State",
             y="Average Growth (%)",
-            title="Average Growth by State",
+            title="Average Period-over-Period Growth by State",
             text_auto=True,
             color="Average Growth (%)",
             color_continuous_scale="RdYlGn"
