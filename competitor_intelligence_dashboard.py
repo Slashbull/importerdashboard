@@ -1,115 +1,43 @@
 import streamlit as st
 import pandas as pd
-import requests
-from io import StringIO
-from market_overview import market_overview_dashboard
-from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 
-# ---- Core System Foundation (Future-Ready Design) ---- #
+# ---- Competitor Intelligence Dashboard ---- #
+def competitor_intelligence_dashboard():
+    st.title("🤝 Competitor Intelligence Dashboard")
 
-# Sidebar Navigation with Secure Login
-st.sidebar.title("📌 Navigation")
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+    if "uploaded_data" not in st.session_state:
+        st.warning("⚠️ No data available. Please upload a dataset first.")
+        return
 
-if not st.session_state["authenticated"]:
-    username = st.sidebar.text_input("👤 Username", key="login_username")
-    password = st.sidebar.text_input("🔑 Password", type="password", key="login_password")
-    if st.sidebar.button("🚀 Login"):
-        if username == "admin" and password == "admin123":
-            st.session_state["authenticated"] = True
-            st.session_state["current_tab"] = "Upload Data"
-            st.query_params(tab="Upload Data")
-        else:
-            st.sidebar.error("🚨 Invalid Username or Password")
-    st.stop()
+    df = st.session_state["uploaded_data"]
 
-st.sidebar.success("✅ Logged in")
-st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"authenticated": False, "uploaded_data": None}))
+    # Ensure required columns exist
+    required_columns = ["Consignee", "Exporter", "Kgs"]
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        st.error(f"🚨 Missing columns in the dataset: {', '.join(missing_columns)}")
+        return
 
-# Navigation
-tab_selection = st.sidebar.radio("Go to:", ["Upload Data", "Market Overview", "Competitor Intelligence"])
+    # Convert Kgs to numeric if not already
+    df["Kgs"] = pd.to_numeric(df["Kgs"], errors="coerce")
 
-if tab_selection == "Upload Data":
-    # ---- Upload Data Page ---- #
-    st.markdown("<h2 class='centered'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
-    
-    upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"))
-    df = None
+    st.markdown("### 🏆 Top Competitors by Import Volume")
+    top_competitors = df.groupby("Consignee")["Kgs"].sum().sort_values(ascending=False).head(5)
+    st.bar_chart(top_competitors)
 
-    if upload_option == "Upload CSV":
-        uploaded_file = st.file_uploader("📥 Upload CSV File", type=["csv"], help="Upload a CSV file containing import data.")
-        if uploaded_file is not None:
-            try:
-                df = pd.read_csv(uploaded_file, low_memory=False)
-                st.session_state["uploaded_data"] = df
-                st.success("✅ File uploaded successfully!")
-            except Exception as e:
-                st.error(f"🚨 Error processing the CSV file: {e}")
+    st.markdown("### 🌍 Exporters Used by Top Competitors")
+    # Filter data for top competitors
+    top_competitors_list = top_competitors.index.tolist()
+    filtered_data = df[df["Consignee"].isin(top_competitors_list)]
+    competitor_exporters = filtered_data.groupby(["Consignee", "Exporter"])["Kgs"].sum().reset_index()
+    st.dataframe(competitor_exporters)
 
-    elif upload_option == "Google Sheet Link":
-        sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
-        sheet_name = "data"  # Fixed sheet name selection
-        if sheet_url and st.button("Load Google Sheet"):
-            try:
-                # Extract Google Sheet ID from URL
-                sheet_id = sheet_url.split("/d/")[1].split("/")[0]
-                csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-                
-                # Fetch data from Google Sheets Viewer Mode
-                response = requests.get(csv_url)
-                response.raise_for_status()
-                df = pd.read_csv(StringIO(response.text), low_memory=False)
-                
-                # Validate data
-                if df.empty:
-                    st.error("🚨 The sheet is empty or the sheet name is incorrect.")
-                else:
-                    st.session_state["uploaded_data"] = df
-                    st.success(f"✅ Data loaded successfully from sheet: {sheet_name}")
-            except Exception as e:
-                st.error(f"🚨 Error loading Google Sheet: {e}")
+    st.markdown("### 📈 Competitor Growth Over Time")
+    if "Month" in df.columns and "Year" in df.columns:
+        df["Period"] = df["Month"] + "-" + df["Year"].astype(str)
+        growth_trends = df.groupby(["Consignee", "Period"])["Kgs"].sum().unstack(fill_value=0)
+        st.line_chart(growth_trends)
+    else:
+        st.warning("⚠️ Columns 'Month' and 'Year' are required for growth analysis.")
 
-    # ---- Data Handling for Large Datasets ---- #
-    if "uploaded_data" in st.session_state:
-        st.markdown("### 🔍 Data Preview (First 50 Rows)")
-        try:
-            st.dataframe(st.session_state["uploaded_data"].head(50))  # Displaying only the first 50 rows for performance
-        except Exception as e:
-            st.error(f"🚨 Error displaying data preview: {e}")
-        
-        st.markdown("### 📊 Data Summary")
-        try:
-            st.write(st.session_state["uploaded_data"].describe())
-        except Exception as e:
-            st.error(f"🚨 Error generating data summary: {e}")
-        
-        # Optimize storage for large datasets
-        try:
-            st.session_state["uploaded_data"] = st.session_state["uploaded_data"].convert_dtypes()
-        except Exception as e:
-            st.error(f"🚨 Error optimizing data types: {e}")
-        
-        csv = st.session_state["uploaded_data"].to_csv(index=False).encode('utf-8')
-        
-        if "csv_downloaded" not in st.session_state:
-            st.session_state["csv_downloaded"] = False
-        
-        if not st.session_state["csv_downloaded"]:
-            try:
-                if st.download_button("📥 Download Processed Data", csv, "processed_data.csv", "text/csv"):
-                    st.session_state["csv_downloaded"] = True
-            except Exception as e:
-                st.error(f"🚨 Error with download button: {e}")
-
-elif tab_selection == "Market Overview":
-    try:
-        market_overview_dashboard()
-    except Exception as e:
-        st.error(f"🚨 Error loading Market Overview Dashboard: {e}")
-
-elif tab_selection == "Competitor Intelligence":
-    try:
-        competitor_intelligence_dashboard()
-    except Exception as e:
-        st.error(f"🚨 Error loading Competitor Intelligence Dashboard: {e}")
+    st.success("✅ Competitor Intelligence Dashboard Loaded Successfully!")
