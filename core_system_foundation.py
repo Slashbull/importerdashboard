@@ -16,7 +16,7 @@ from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
 from reporting_data_exports import reporting_data_exports
-from product_insights_dashboard import product_insights_dashboard  # New module
+from product_insights_dashboard import product_insights_dashboard  # <-- New module
 
 # -----------------------------------------------------------------------------
 # Logging configuration
@@ -28,21 +28,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Query Parameters Update using st.set_query_params (with fallback)
+# Fallback for Query Parameters Update
 # -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """
-    Update query parameters using st.set_query_params.
-    Each parameter value is wrapped in a list if it isn’t already.
-    If st.set_query_params is unavailable, falls back to st.experimental_set_query_params.
+    Try to update query parameters using st.set_query_params.
+    If unavailable, fall back to st.experimental_set_query_params.
     """
-    new_params = {k: v if isinstance(v, list) else [v] for k, v in params.items()}
     try:
-        st.set_query_params(**new_params)
+        st.set_query_params(**params)
     except AttributeError:
-        st.experimental_set_query_params(**new_params)
-    except Exception as e:
-        logger.exception("Failed to update query parameters: %s", e)
+        st.experimental_set_query_params(**params)
 
 # -----------------------------------------------------------------------------
 # Authentication & Session Management
@@ -56,9 +52,9 @@ def authenticate_user():
 
     if not st.session_state["authenticated"]:
         st.sidebar.title("🔒 Login")
-        username = st.sidebar.text_input("👤 Username", key="login_username", help="Enter your username.")
-        password = st.sidebar.text_input("🔑 Password", type="password", key="login_password", help="Enter your password.")
-        if st.sidebar.button("🚀 Login", key="login_button"):
+        username = st.sidebar.text_input("👤 Username", key="login_username")
+        password = st.sidebar.text_input("🔑 Password", type="password", key="login_password")
+        if st.sidebar.button("🚀 Login"):
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
                 st.session_state["current_tab"] = "Upload Data"
@@ -73,7 +69,7 @@ def logout_button():
     """
     Display a logout button that clears the session and refreshes the app.
     """
-    if st.sidebar.button("🔓 Logout", key="logout_button"):
+    if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
         st.rerun()  # Refresh the app
 
@@ -83,7 +79,7 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and convert numeric columns by removing commas and trimming spaces.
-    Only the 'Tons' column is processed.
+    Only the 'Tons' column is used.
     """
     numeric_cols = ["Tons"]
     for col in numeric_cols:
@@ -108,20 +104,20 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both raw and filtered data in session_state.
+    and store both the raw and filtered data in session_state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
-    upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0, key="upload_option")
+    upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
     df = None
 
     if upload_option == "Upload CSV":
-        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload your CSV file containing your data.", key="csv_uploader")
+        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"], help="Upload your CSV file containing your data.")
         if uploaded_file is not None:
             df = load_csv_data(uploaded_file)
     else:
-        sheet_url = st.text_input("🔗 Enter Google Sheet Link:", key="sheet_url")
+        sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
         sheet_name = config.DEFAULT_SHEET_NAME
-        if sheet_url and st.button("Load Google Sheet", key="load_sheet"):
+        if sheet_url and st.button("Load Google Sheet"):
             try:
                 sheet_id = sheet_url.split("/d/")[1].split("/")[0]
                 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
@@ -198,7 +194,7 @@ def main():
     authenticate_user()
     logout_button()
 
-    # Navigation: Use a dropdown (selectbox) for switching between dashboards.
+    # Use a dropdown (selectbox) for navigation
     tabs = [
         "Upload Data", 
         "Market Overview", 
@@ -209,22 +205,22 @@ def main():
         "AI-Based Alerts & Forecasting", 
         "Reporting & Data Exports"
     ]
-    current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")), key="nav_select")
+    current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
     st.session_state["current_tab"] = current_tab
 
-    # Update global filter if data exists.
+    # Update global filter if data exists
     if "uploaded_data" in st.session_state:
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
 
-    # Route to the selected dashboard module.
+    # Route to the selected dashboard page
     try:
         if current_tab == "Upload Data":
             df = upload_data()
             if "uploaded_data" in st.session_state:
                 display_data_preview(st.session_state["uploaded_data"])
                 csv_data = st.session_state["uploaded_data"].to_csv(index=False).encode("utf-8")
-                st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv", key="download_csv")
+                st.download_button("📥 Download Processed Data", data=csv_data, file_name="processed_data.csv", mime="text/csv")
         elif current_tab == "Market Overview":
             market_overview_dashboard(get_current_data())
         elif current_tab == "Competitor Intelligence":
@@ -233,12 +229,12 @@ def main():
             supplier_performance_dashboard(get_current_data())
         elif current_tab == "State-Level Market Insights":
             state_level_market_insights(get_current_data())
-        elif current_tab == "Product Insights":
-            product_insights_dashboard(get_current_data())
         elif current_tab == "AI-Based Alerts & Forecasting":
             ai_based_alerts_forecasting(get_current_data())
         elif current_tab == "Reporting & Data Exports":
             reporting_data_exports(get_current_data())
+        elif current_tab == "Product Insights":
+            product_insights_dashboard(get_current_data())
     except Exception as e:
         st.error(f"🚨 An error occurred: {e}")
         logger.exception("Error in main routing: %s", e)
