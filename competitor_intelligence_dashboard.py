@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 
 def competitor_intelligence_dashboard(data: pd.DataFrame):
     st.title("🤝 Competitor Intelligence Dashboard")
@@ -16,21 +17,22 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Ensure "Tons" is numeric.
+    # Ensure 'Tons' is numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create a "Period" field if not present.
+    # Create a "Period" field if not already present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
     # ---------------------------
     # Compute Competitor Summary Metrics
     # ---------------------------
+    # We assume each unique "Consignee" represents a competitor.
     comp_summary = data.groupby("Consignee")["Tons"].sum().reset_index()
     total_comp_volume = comp_summary["Tons"].sum()
     avg_volume = comp_summary["Tons"].mean() if not comp_summary.empty else 0
 
-    # Compute period-over-period growth for each competitor.
+    # Compute recent period-over-period growth for each competitor.
     growth_list = []
     for comp in comp_summary["Consignee"]:
         comp_data = data[data["Consignee"] == comp].groupby("Period")["Tons"].sum().sort_index()
@@ -66,7 +68,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     # ----- Tab 2: Exporters Breakdown -----
     with tab_export:
         st.subheader("Exporters Breakdown for Selected Competitor")
-        # Toggle option: show only top 10 competitors or all.
+        # Toggle: Show only top 10 competitors or all.
         show_top_exporters = st.checkbox("Show only top 10 competitors", value=True, key="show_top_exporters")
         if show_top_exporters:
             candidate_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
@@ -101,7 +103,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         
         st.markdown("---")
         st.subheader("Detailed Growth Analysis")
-        # Toggle option: show only top 10 competitors or all.
+        # Toggle: Show only top 10 competitors or all.
         show_top_growth = st.checkbox("Show only top 10 competitors", value=True, key="show_top_growth")
         if show_top_growth:
             candidate_for_growth = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
@@ -125,8 +127,8 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     with tab_detailed:
         st.subheader("Detailed Competitor Analysis")
         st.markdown("Select one or more competitors to compare detailed metrics and trends.")
+        # Default to selecting all competitors.
         all_competitors = sorted(data["Consignee"].dropna().unique().tolist())
-        # Default to select all competitors.
         selected_comps = st.multiselect("Select Competitors:", all_competitors, default=all_competitors, key="ci_detailed")
         if selected_comps:
             detailed_data = data[data["Consignee"].isin(selected_comps)]
@@ -141,8 +143,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                 markers=True
             )
             st.plotly_chart(fig_compare, use_container_width=True)
-            
-            # Create a pivot table with a Total column and Total row.
+            # Create a pivot table with row totals and a total row.
             pivot_table = detailed_data.pivot_table(
                 index="Consignee",
                 columns="Period",
@@ -150,13 +151,10 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                 aggfunc="sum",
                 fill_value=0
             )
-            # Calculate row totals.
             pivot_table["Total"] = pivot_table.sum(axis=1)
-            # Calculate column totals.
             total_row = pd.DataFrame(pivot_table.sum(axis=0)).T
             total_row.index = ["Total"]
             pivot_table_with_total = pd.concat([pivot_table, total_row])
-            
             st.markdown("#### Detailed Volume Pivot Table (with Totals)")
             st.dataframe(pivot_table_with_total)
         else:
