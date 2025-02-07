@@ -105,7 +105,7 @@ def market_overview_dashboard(data: pd.DataFrame):
             st.plotly_chart(fig_top_exp, use_container_width=True)
         st.markdown("---")
         st.subheader("Importer/Exporter Contribution")
-        st.markdown("This treemap shows how each importer (Consignee) connects with various exporters. Segment size represents total Tons.")
+        st.markdown("This treemap shows how each importer (Consignee) is connected with various exporters. Segment size represents total Tons.")
         contribution = data.groupby(["Consignee", "Exporter"])["Tons"].sum().reset_index()
         fig_treemap = px.treemap(contribution, path=["Consignee", "Exporter"], values="Tons",
                                  title="Importer/Exporter Contribution Treemap", color="Tons",
