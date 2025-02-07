@@ -26,11 +26,19 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=lo
 logger = logging.getLogger(__name__)
 
 def update_query_params(params: dict):
-    """Update URL query parameters using st.set_query_params."""
-    st.set_query_params(**params)
+    """
+    Update URL query parameters using the new st.query_params.update API.
+    (In the latest Streamlit versions, st.query_params is a dict-like object.)
+    """
+    try:
+        st.query_params.update(**params)
+    except Exception as e:
+        logger.error("Error updating query parameters: %s", e)
 
 def authenticate_user():
-    """Display a login form and validate credentials."""
+    """
+    Display a login form and validate credentials.
+    """
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
     if not st.session_state["authenticated"]:
@@ -49,10 +57,12 @@ def authenticate_user():
         st.stop()
 
 def logout_button():
-    """Display a logout button that clears the session and refreshes the app."""
+    """
+    Display a logout button that clears the session and refreshes the app.
+    """
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()  # Use st.rerun() instead of st.experimental_rerun()
 
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -82,7 +92,9 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
-    """Load CSV data with caching."""
+    """
+    Load CSV data with caching.
+    """
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
     except Exception as e:
@@ -126,7 +138,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Apply filters automatically.
+        # Permanently display filters in the sidebar.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -135,16 +147,6 @@ def upload_data():
     else:
         st.info("No data loaded yet. Please upload a file or provide a valid Google Sheet link.")
     return df
-
-def display_data_preview(df: pd.DataFrame):
-    """
-    Display a preview (first 50 rows) and summary statistics of the data.
-    (Not used in this version per requirements.)
-    """
-    st.markdown("### 🔍 Data Preview (First 50 Rows)")
-    st.dataframe(df.head(50))
-    st.markdown("### 📊 Data Summary")
-    st.write(df.describe(include="all"))
 
 def get_current_data():
     """
@@ -179,11 +181,14 @@ def add_custom_css():
     st.markdown(custom_css, unsafe_allow_html=True)
 
 def display_header():
-    """Display a fixed header with the dashboard title and current page."""
+    """
+    Display a fixed header with the current page.
+    (Dashboard title "Import/Export Analytics Dashboard" has been removed as requested.)
+    """
     current_page = st.session_state.get("page", "Home")
     header_html = f"""
     <div class="fixed-header">
-        <h1>Import/Export Analytics Dashboard</h1>
+        <h1>Analytics Dashboard</h1>
         <span style="font-size:1.2em;">Current Page: {current_page}</span>
     </div>
     """
@@ -199,7 +204,7 @@ def display_footer():
     st.markdown(footer_html, unsafe_allow_html=True)
 
 def main():
-    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     add_custom_css()
     display_header()
     
@@ -217,16 +222,16 @@ def main():
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
 
-    # Add a Reset Data button (only if data is already loaded).
+    # Add a Reset Data button if data is already loaded.
     if "uploaded_data" in st.session_state:
         st.sidebar.markdown("**Data Status:**")
         st.sidebar.success("Data is already loaded.")
         if st.sidebar.button("Reset Data", key="reset_data"):
             st.session_state.pop("uploaded_data", None)
             st.session_state.pop("filtered_data", None)
-            st.experimental_rerun()
+            st.rerun()  # Using st.rerun() per latest API
     
-    # Permanently display filters if data is loaded.
+    # Permanently display filters in the sidebar if data is loaded.
     if "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
@@ -240,7 +245,7 @@ def main():
         st.header("Executive Summary & Data Upload")
         df = upload_data()
         if df is not None and not df.empty:
-            # On Home page, provide only a download button.
+            # Instead of preview, only show a download button.
             st.sidebar.download_button("📥 Download Processed Data", df.to_csv(index=False).encode("utf-8"), "processed_data.csv", "text/csv")
         else:
             st.info("Please upload your data to view insights.")
