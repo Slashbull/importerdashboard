@@ -11,7 +11,7 @@ import config
 from filters import smart_apply_filters as apply_filters
 
 # Import dashboard modules
-from market_overview import market_overview_dashboard
+from market_overview_dashboard import market_overview_dashboard
 from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
@@ -48,8 +48,8 @@ def authenticate_user():
         if st.sidebar.button("🚀 Login"):
             if username == config.USERNAME and password == config.PASSWORD:
                 st.session_state["authenticated"] = True
-                st.session_state["current_tab"] = "Upload Data"
-                update_query_params({"tab": "Upload Data"})
+                st.session_state["current_tab"] = "Home"
+                update_query_params({"tab": "Home"})
                 logger.info("User authenticated successfully.")
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
@@ -106,7 +106,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 
 def upload_data():
     """
-    Handle data upload from CSV or Google Sheets, preprocess, and store in session state.
+    Handle data upload from CSV or Google Sheets, preprocess it, and store raw and filtered data in session state.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
@@ -158,64 +158,115 @@ def get_current_data():
 def add_custom_css():
     custom_css = """
     <style>
+        /* Top Navigation Bar Styling */
+        .top-nav {
+            background-color: #1B4F72;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+        .top-nav h1 {
+            margin: 0;
+            font-size: 1.8em;
+        }
+        .top-nav .nav-tabs {
+            display: flex;
+            gap: 15px;
+        }
+        .top-nav .nav-tab {
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+        .top-nav .nav-tab.active, .top-nav .nav-tab:hover {
+            background-color: #2E86C1;
+        }
+        /* Main container styling */
         .main .block-container { padding: 1rem 2rem; }
-        header { background-color: #1B4F72; padding: 10px; color: white; text-align: center; }
-        h2 { color: #2E86C1; }
-        h1 { color: #1B4F72; }
+        /* Sidebar modifications for filters */
         .sidebar .sidebar-content { font-size: 14px; }
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-def display_header():
-    current_tab = st.session_state.get("current_tab", "Upload Data")
-    st.markdown(f"<header><h1>Import/Export Analytics Dashboard</h1><p>Current View: {current_tab}</p></header>", unsafe_allow_html=True)
+def display_header(current_tab: str):
+    """
+    Display a top navigation bar with the brand and current module.
+    """
+    nav_html = f"""
+    <div class="top-nav">
+      <h1>Import/Export Analytics Dashboard</h1>
+      <div class="nav-tabs">
+        <span class="nav-tab {'active' if current_tab=='Home' else ''}">Home</span>
+        <span class="nav-tab {'active' if current_tab=='Market Overview' else ''}">Market Overview</span>
+        <span class="nav-tab {'active' if current_tab=='Competitor Intelligence' else ''}">Competitor Intelligence</span>
+        <span class="nav-tab {'active' if current_tab=='Supplier Performance' else ''}">Supplier Performance</span>
+        <span class="nav-tab {'active' if current_tab=='State-Level Insights' else ''}">State-Level Insights</span>
+        <span class="nav-tab {'active' if current_tab=='Product Insights' else ''}">Product Insights</span>
+        <span class="nav-tab {'active' if current_tab=='Alerts & Forecasting' else ''}">Alerts & Forecasting</span>
+        <span class="nav-tab {'active' if current_tab=='Reporting' else ''}">Reporting</span>
+      </div>
+    </div>
+    """
+    st.markdown(nav_html, unsafe_allow_html=True)
 
 def main():
-    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Import/Export Analytics Dashboard", layout="wide", initial_sidebar_state="collapsed")
     add_custom_css()
-    display_header()
+    
+    # Use session state to hold current module; default to "Home"
+    current_tab = st.session_state.get("current_tab", "Home")
+    display_header(current_tab)
+    
+    # Sidebar: Collapsible Advanced Filters
+    with st.sidebar.expander("Advanced Filters", expanded=False):
+        st.write("Filters will be applied on data load. (They are available after data is uploaded.)")
+    
     authenticate_user()
     logout_button()
     
-    # Navigation
-    tabs = ["Upload Data", "Market Overview", "Competitor Intelligence", "Supplier Performance",
-            "State-Level Market Insights", "Product Insights", "AI-Based Alerts & Forecasting", "Reporting & Data Exports"]
-    current_tab = st.sidebar.selectbox("Go to:", tabs, index=tabs.index(st.session_state.get("current_tab", "Upload Data")))
+    # Top Navigation: Simulated via st.tabs for main modules
+    nav_options = ["Home", "Market Overview", "Competitor Intelligence", "Supplier Performance",
+                   "State-Level Insights", "Product Insights", "Alerts & Forecasting", "Reporting"]
+    
+    # For simplicity, we simulate top navigation by displaying a horizontal st.tabs widget.
+    # In a production system, you might persist this selection via session state or JavaScript.
+    selected_tabs = st.tabs(nav_options)
+    # Here we use the first tab as default for demonstration.
+    current_tab = nav_options[0]
     st.session_state["current_tab"] = current_tab
-    
-    if "uploaded_data" in st.session_state:
-        try:
-            filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
-            st.session_state["filtered_data"] = filtered_df
-        except Exception as e:
-            st.error(f"🚨 Error applying filters: {e}")
-            logger.exception("Error in applying filters: %s", e)
-    
-    try:
-        if current_tab == "Upload Data":
-            df = upload_data()
-            if "uploaded_data" in st.session_state:
-                display_data_preview(st.session_state["uploaded_data"])
-                csv_data = st.session_state["uploaded_data"].to_csv(index=False).encode("utf-8")
-                st.download_button("📥 Download Processed Data", csv_data, "processed_data.csv", "text/csv")
-        elif current_tab == "Market Overview":
-            market_overview_dashboard(get_current_data())
-        elif current_tab == "Competitor Intelligence":
-            competitor_intelligence_dashboard(get_current_data())
-        elif current_tab == "Supplier Performance":
-            supplier_performance_dashboard(get_current_data())
-        elif current_tab == "State-Level Market Insights":
-            state_level_market_insights(get_current_data())
-        elif current_tab == "Product Insights":
-            product_insights_dashboard(get_current_data())
-        elif current_tab == "AI-Based Alerts & Forecasting":
-            ai_based_alerts_forecasting(get_current_data())
-        elif current_tab == "Reporting & Data Exports":
-            reporting_data_exports(get_current_data())
-    except Exception as e:
-        st.error(f"🚨 An error occurred: {e}")
-        logger.exception("Error in main routing: %s", e)
+
+    # "Home" Module: Executive Summary and Data Upload
+    if current_tab == "Home":
+        st.header("Executive Summary")
+        df = upload_data()
+        if df is not None and not df.empty:
+            display_data_preview(df)
+            csv_data = df.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Download Processed Data", csv_data, "processed_data.csv", "text/csv")
+        else:
+            st.info("Please upload your data to view insights.")
+    else:
+        data = get_current_data()
+        if data is None or data.empty:
+            st.error("No data loaded. Please upload data on the Home page first.")
+        else:
+            if current_tab == "Market Overview":
+                market_overview_dashboard(data)
+            elif current_tab == "Competitor Intelligence":
+                competitor_intelligence_dashboard(data)
+            elif current_tab == "Supplier Performance":
+                supplier_performance_dashboard(data)
+            elif current_tab == "State-Level Insights":
+                state_level_market_insights(data)
+            elif current_tab == "Product Insights":
+                product_insights_dashboard(data)
+            elif current_tab == "Alerts & Forecasting":
+                ai_based_alerts_forecasting(data)
+            elif current_tab == "Reporting":
+                reporting_data_exports(data)
 
 if __name__ == "__main__":
     main()
