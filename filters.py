@@ -3,17 +3,19 @@ import pandas as pd
 from rapidfuzz import process, fuzz  # pip install rapidfuzz
 
 # Predefined month ordering for sorting
-MONTH_ORDER = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-               "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+MONTH_ORDER = {
+    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
+}
 
 def classify_mark(mark: str, threshold: int = 70) -> str:
     """
     Classify the 'Mark' string into a simplified product category using fuzzy matching.
-    Returns the best match if the score is >= threshold; otherwise, "Other".
+    Returns the best match if its score is >= threshold; otherwise, "Other".
     """
     if not isinstance(mark, str):
         return "Unknown"
-    # Candidate categories – can be configured further as needed.
+    # Candidate categories – these can be extended or configured further.
     categories = ["Safawi", "Sukkari", "Sugar", "Phoenix", "Unmanufactured"]
     best_match = process.extractOne(mark, categories, scorer=fuzz.token_set_ratio)
     if best_match and best_match[1] >= threshold:
@@ -28,25 +30,25 @@ def smart_apply_filters(df: pd.DataFrame):
     """
     st.sidebar.header("🔍 Global Data Filters")
 
-    # Work on a copy to avoid modifying original data
+    # Work on a copy so the original data remains intact.
     filtered_df = df.copy()
 
-    # Enhance Product Classification with interactive threshold control
+    # Apply fuzzy classification for product if not already present.
     if "Mark" in filtered_df.columns and "Product" not in filtered_df.columns:
         threshold_value = st.sidebar.slider("Set Fuzzy Matching Threshold", 50, 100, 70, step=5)
-        with st.spinner("Processing product categories..."):
+        with st.spinner("Classifying products..."):
             filtered_df["Product"] = filtered_df["Mark"].apply(
                 lambda x: classify_mark(x, threshold=threshold_value)
             )
 
     def dynamic_multiselect(label: str, column: str, current_df: pd.DataFrame):
         """
-        Create a dynamic multiselect widget for a given column.
-        Returns selected values (defaults to all options if "All" is selected).
+        Create a dynamic multiselect widget for the given column.
+        Returns the list of selected values (defaults to all if "All" is selected).
         """
         if column not in current_df.columns:
             st.sidebar.error(f"Column '{column}' not found.")
-            st.error(f"Missing column: {column}. Please check your dataset.")
+            st.error(f"Missing column: {column}.")
             return None
 
         options = current_df[column].dropna().unique().tolist()
@@ -61,7 +63,7 @@ def smart_apply_filters(df: pd.DataFrame):
         selected = st.sidebar.multiselect(f"📌 {label}:", options_with_all, default=["All"])
         return options if "All" in selected or not selected else selected
 
-    # Sequentially apply filters
+    # Apply filters in order.
     selected_years = dynamic_multiselect("Select Year", "Year", filtered_df)
     if selected_years is not None:
         filtered_df = filtered_df[filtered_df["Year"].isin(selected_years)]
@@ -86,7 +88,7 @@ def smart_apply_filters(df: pd.DataFrame):
     if selected_products is not None:
         filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
     
-    # Ensure "Tons" is numeric
+    # Ensure "Tons" is numeric.
     unit_column = "Tons"
     if unit_column in filtered_df.columns:
         filtered_df[unit_column] = pd.to_numeric(filtered_df[unit_column], errors="coerce")
