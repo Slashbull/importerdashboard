@@ -93,15 +93,14 @@ def product_insights_dashboard(data: pd.DataFrame):
         st.markdown("<hr>", unsafe_allow_html=True)
         st.subheader("Detailed Trends for Selected Products")
         all_products = sorted(data["Product"].dropna().unique().tolist())
-        selected_products = st.multiselect("Select Product Categories", options=all_products, default=all_products[:3])
-        if selected_products:
-            detailed_trends = data[data["Product"].isin(selected_products)]
-            detailed_df = detailed_trends.groupby(["Product", "Period"])["Tons"].sum().reset_index()
-            fig_detail = px.line(detailed_df, x="Period", y="Tons", color="Product",
-                                 title="Detailed Trends for Selected Products", markers=True)
-            st.plotly_chart(fig_detail, use_container_width=True)
-        else:
-            st.info("Please select at least one product category for detailed analysis.")
+        selected_products = st.multiselect("Select Product Categories", options=all_products, default=[])
+        if not selected_products:
+            selected_products = all_products
+        detailed_trends = data[data["Product"].isin(selected_products)]
+        detailed_df = detailed_trends.groupby(["Product", "Period"])["Tons"].sum().reset_index()
+        fig_detail = px.line(detailed_df, x="Period", y="Tons", color="Product",
+                             title="Detailed Trends for Selected Products", markers=True)
+        st.plotly_chart(fig_detail, use_container_width=True)
     
     with tab_market_share:
         st.subheader("Market Share by Product Category")
