@@ -95,8 +95,14 @@ def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
     and store both raw and filtered data in session state.
+    Data is persisted for the duration of the session.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
+    # Check if data is already uploaded.
+    if "uploaded_data" in st.session_state:
+        st.info("Data is already loaded. Use the 'Reset Data' button to upload a new file.")
+        return st.session_state["uploaded_data"]
+    
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
     df = None
     if upload_option == "Upload CSV":
@@ -120,7 +126,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Permanently display filters in the sidebar.
+        # Apply filters automatically.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -131,14 +137,19 @@ def upload_data():
     return df
 
 def display_data_preview(df: pd.DataFrame):
-    """Display a preview (first 50 rows) and summary statistics of the data."""
+    """
+    Display a preview (first 50 rows) and summary statistics of the data.
+    (Not used in this version per requirements.)
+    """
     st.markdown("### 🔍 Data Preview (First 50 Rows)")
     st.dataframe(df.head(50))
     st.markdown("### 📊 Data Summary")
     st.write(df.describe(include="all"))
 
 def get_current_data():
-    """Return filtered data if available; otherwise, return raw uploaded data."""
+    """
+    Return filtered data if available; otherwise, return raw uploaded data.
+    """
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 def add_custom_css():
@@ -158,14 +169,9 @@ def add_custom_css():
             justify-content: space-between;
             align-items: center;
         }
-        .fixed-header h1 {
-            margin: 0;
-            font-size: 1.8em;
-        }
+        .fixed-header h1 { margin: 0; font-size: 1.8em; }
         /* Main content margin to avoid overlap with header */
-        .main-content {
-            margin-top: 70px;
-        }
+        .main-content { margin-top: 70px; }
         /* Sidebar styling */
         .sidebar .sidebar-content { font-size: 14px; }
     </style>
@@ -210,13 +216,22 @@ def main():
     ]
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
+
+    # Add a Reset Data button (only if data is already loaded).
+    if "uploaded_data" in st.session_state:
+        st.sidebar.markdown("**Data Status:**")
+        st.sidebar.success("Data is already loaded.")
+        if st.sidebar.button("Reset Data", key="reset_data"):
+            st.session_state.pop("uploaded_data", None)
+            st.session_state.pop("filtered_data", None)
+            st.experimental_rerun()
     
-    # Permanently display filters in the sidebar if data is loaded.
+    # Permanently display filters if data is loaded.
     if "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
-    
+
     authenticate_user()
     logout_button()
     
@@ -225,9 +240,8 @@ def main():
         st.header("Executive Summary & Data Upload")
         df = upload_data()
         if df is not None and not df.empty:
-            display_data_preview(df)
-            csv_data = df.to_csv(index=False).encode("utf-8")
-            st.download_button("📥 Download Processed Data", csv_data, "processed_data.csv", "text/csv")
+            # On Home page, provide only a download button.
+            st.sidebar.download_button("📥 Download Processed Data", df.to_csv(index=False).encode("utf-8"), "processed_data.csv", "text/csv")
         else:
             st.info("Please upload your data to view insights.")
         st.markdown("</div>", unsafe_allow_html=True)
