@@ -1,13 +1,17 @@
-Project Structure:
+TradeDataDashboard/
 ├── config.py
-├── core_system_foundation.py
+├── core_system.py
 ├── filters.py
-├── market_overview_dashboard.py
-├── competitor_intelligence_dashboard.py
-├── state_level_market_insights.py
-├── supplier_performance_dashboard.py
-├── ai_based_alerts_forecasting.py
-├── product_insights_dashboard.py
-├── reporting_data_exports.py
-├── requirements.txt
-└── structure.txt
+├── market_overview.py
+├── detailed_analysis.py
+├── ai_based_alerts.py
+├── forecasting.py
+├── country_level_insights.py
+├── segmentation_analysis.py
+├── correlation_analysis.py
+├── time_series_decomposition.py
+├── calendar_insights.py
+├── climate_insights.py
+├── scenario_simulation.py      # Optional module for “what if” simulations
+├── reporting.py                # Optional module for exports/reports
+└── requirements.txt
