@@ -16,22 +16,21 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Ensure 'Tons' is numeric.
+    # Ensure numeric conversion for "Tons".
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create a "Period" field if not already present.
+    # Create "Period" if not already present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
     # ---------------------------
-    # Compute KPIs for Competitor Intelligence
+    # Compute Competitor KPIs
     # ---------------------------
-    st.subheader("Competitor Summary")
-    # Grouping by Consignee to assume competitors are identified by the "Consignee" field.
+    # Here, we assume each unique "Consignee" represents a competitor.
     comp_agg = data.groupby("Consignee")["Tons"].sum().reset_index()
     total_volume = comp_agg["Tons"].sum()
     avg_volume = comp_agg["Tons"].mean() if not comp_agg.empty else 0
-
+    
     # Compute period-over-period growth for each competitor.
     growth_list = []
     for comp in comp_agg["Consignee"]:
@@ -45,38 +44,29 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     best_growth = comp_agg["Recent Growth (%)"].max() if not comp_agg.empty else 0
     worst_growth = comp_agg["Recent Growth (%)"].min() if not comp_agg.empty else 0
 
-    # Display KPI metrics in columns.
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Competitor Volume (Tons)", f"{total_volume:,.2f}")
-    col2.metric("Average Volume per Competitor", f"{avg_volume:,.2f}")
-    col3.metric("Best Recent Growth (%)", f"{best_growth:,.2f}")
-    col4.metric("Worst Recent Growth (%)", f"{worst_growth:,.2f}")
-    st.markdown("---")
-
     # ---------------------------
-    # Layout using tabs.
+    # Layout: Tabs for Summary, Exporters Breakdown, Growth & Trends
     # ---------------------------
-    tab_top, tab_export, tab_growth = st.tabs(["Top Competitors", "Exporters Breakdown", "Growth & Trends"])
+    tab_summary, tab_export, tab_growth = st.tabs(["Summary", "Exporters Breakdown", "Growth & Trends"])
     
-    # --- Tab 1: Top Competitors ---
-    with tab_top:
-        st.subheader("Top Competitors by Volume")
-        top_n = st.selectbox("Select number of top competitors to display:", options=[5, 10, 15, 20, 25], index=0)
-        top_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(top_n).reset_index()
-        fig_top = px.bar(
-            top_competitors,
-            x="Consignee",
-            y="Tons",
-            title=f"Top {top_n} Competitors by Tons",
-            labels={"Tons": "Total Tons"},
-            text_auto=True,
-            color="Tons"
-        )
-        st.plotly_chart(fig_top, use_container_width=True)
+    # ----- Summary Tab -----
+    with tab_summary:
+        st.subheader("Competitor Summary")
+        # Display key metrics in columns.
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Competitor Volume (Tons)", f"{total_volume:,.2f}")
+        col2.metric("Average Volume per Competitor", f"{avg_volume:,.2f}")
+        col3.metric("Best Recent Growth (%)", f"{best_growth:,.2f}")
+        col4.metric("Worst Recent Growth (%)", f"{worst_growth:,.2f}")
+        
+        st.markdown("---")
+        st.subheader("Detailed Competitor Summary")
+        st.dataframe(comp_agg.sort_values("Tons", ascending=False))
     
-    # --- Tab 2: Exporters Breakdown ---
+    # ----- Exporters Breakdown Tab -----
     with tab_export:
         st.subheader("Exporters Breakdown for Selected Competitor")
+        # Display a dropdown of top competitors based on volume.
         candidate_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
         if candidate_competitors:
             selected_competitor = st.selectbox("Select a Competitor:", candidate_competitors, key="ci_selected_competitor")
@@ -98,11 +88,14 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         else:
             st.info("No competitor data available for exporter breakdown.")
     
-    # --- Tab 3: Growth & Trends ---
+    # ----- Growth & Trends Tab -----
     with tab_growth:
         st.subheader("Competitor Trends Over Time")
+        # Pivot table for time-series trends.
         trends_df = data.groupby(["Consignee", "Period"])["Tons"].sum().unstack(fill_value=0)
         st.line_chart(trends_df)
+        
+        # Detailed growth analysis for a selected competitor.
         candidate_competitors_growth = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
         if candidate_competitors_growth:
             selected_for_growth = st.selectbox("Select Competitor for Detailed Growth Analysis:", candidate_competitors_growth, key="ci_growth")
