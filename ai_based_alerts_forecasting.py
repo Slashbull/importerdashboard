@@ -28,7 +28,7 @@ def ai_based_alerts_forecasting(data: pd.DataFrame):
         comp_period = data.groupby(["Consignee", "Period"])["Tons"].sum().unstack(fill_value=0)
         pct_change = comp_period.pct_change(axis=1) * 100
         pct_change = pct_change.round(2)
-        threshold = st.slider("Alert Threshold (% Change)", 0, 100, 20, step=5)
+        threshold = st.slider("Alert Threshold (% Change)", 0, 100, 20, step=5, key="alert_threshold")
         if pct_change.shape[1] < 2:
             st.info("Not enough periods to compute alerts.")
         else:
