@@ -23,7 +23,7 @@ def clean_text(text: str) -> str:
     Returns:
         str: The cleaned text.
     """
-    # Convert to lowercase and remove non-alphabetic characters (except whitespace)
+    # Convert to lowercase and remove any character that is not a letter or whitespace.
     return re.sub(r'[^a-z\s]', '', text.lower()).strip()
 
 def classify_mark(mark: str, threshold: int = 70) -> str:
@@ -43,11 +43,11 @@ def classify_mark(mark: str, threshold: int = 70) -> str:
     if not isinstance(mark, str):
         return "Unknown"
     
-    # Clean the text to help overcome spelling mistakes
+    # Clean the input text to handle typos/spelling mistakes.
     cleaned_mark = clean_text(mark)
     
-    # Extended dictionary of product categories with associated keywords.
-    # Order matters: more specific categories should be checked first.
+    # Extended dictionary for product categories.
+    # Adjust or extend these entries as your data evolves.
     category_keywords = {
         "Ajwa": ["ajwa"],
         "Mabroom": ["mabroom"],
@@ -83,7 +83,7 @@ def smart_apply_filters(df: pd.DataFrame):
     """
     Apply dynamic, interconnected filters to the DataFrame.
     
-    Filters (shown in the sidebar):
+    Filters (displayed in the sidebar):
       - Year
       - Month
       - Consignee State
@@ -91,7 +91,7 @@ def smart_apply_filters(df: pd.DataFrame):
       - Exporter
       - Product (automatically derived from the 'Mark' column)
     
-    If no filter is selected, all available options for that field are used.
+    If no selection is made for a filter, all available options for that field are used.
     
     Returns:
         tuple: (filtered DataFrame, unit column as string ("Tons"))
@@ -110,15 +110,15 @@ def smart_apply_filters(df: pd.DataFrame):
     def dynamic_multiselect(label: str, column: str, current_df: pd.DataFrame):
         """
         Create a dynamic multiselect widget for the specified column.
-        Returns all available options if the user makes no selection.
+        If the user makes no selection, returns all available options.
         
         Parameters:
-            label (str): Label for the widget.
+            label (str): The display label.
             column (str): The column name.
-            current_df (pd.DataFrame): DataFrame on which to apply the filter.
-        
+            current_df (pd.DataFrame): The DataFrame being filtered.
+            
         Returns:
-            list: Selected options or full list if no selection.
+            list: Selected options or the full list if no selection.
         """
         if column not in current_df.columns:
             st.sidebar.error(f"Column '{column}' not found.")
@@ -133,7 +133,7 @@ def smart_apply_filters(df: pd.DataFrame):
         selected = st.sidebar.multiselect(f"📌 {label}:", options, default=[], key=f"multiselect_{column}")
         return options if not selected else selected
 
-    # Apply multiselect filters for each column.
+    # Apply filters one by one.
     selected_years = dynamic_multiselect("Select Year", "Year", filtered_df)
     if selected_years is not None:
         filtered_df = filtered_df[filtered_df["Year"].isin(selected_years)]
