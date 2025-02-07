@@ -16,20 +16,22 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Ensure numeric conversion for "Tons".
+    # Ensure "Tons" is numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create a "Period" field if not present.
+    # Create a "Period" field if not already present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # --- Compute Competitor Summary Metrics ---
+    # ---------------------------
+    # Compute Competitor Summary Metrics
+    # ---------------------------
     # We assume each unique "Consignee" represents a competitor.
     comp_summary = data.groupby("Consignee")["Tons"].sum().reset_index()
     total_comp_volume = comp_summary["Tons"].sum()
     avg_comp_volume = comp_summary["Tons"].mean() if not comp_summary.empty else 0
 
-    # Compute recent period-over-period growth per competitor.
+    # Compute recent period-over-period growth for each competitor.
     growth_list = []
     for comp in comp_summary["Consignee"]:
         comp_data = data[data["Consignee"] == comp].groupby("Period")["Tons"].sum().sort_index()
@@ -42,7 +44,9 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     best_growth = comp_summary["Recent Growth (%)"].max() if not comp_summary.empty else 0
     worst_growth = comp_summary["Recent Growth (%)"].min() if not comp_summary.empty else 0
 
-    # --- Layout: Four Tabs ---
+    # ---------------------------
+    # Layout: Use four tabs: Summary, Exporters Breakdown, Trends & Growth, Detailed Analysis.
+    # ---------------------------
     tab_summary, tab_export, tab_trends, tab_detailed = st.tabs([
         "Summary", "Exporters Breakdown", "Trends & Growth", "Detailed Analysis"
     ])
@@ -55,16 +59,21 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         col2.metric("Average Volume per Competitor", f"{avg_comp_volume:,.2f}")
         col3.metric("Best Recent Growth (%)", f"{best_growth:,.2f}")
         col4.metric("Worst Recent Growth (%)", f"{worst_growth:,.2f}")
+        
         st.markdown("---")
         st.subheader("Detailed Competitor Summary")
-        # Display a table with all competitors and KPIs.
         st.dataframe(comp_summary.sort_values("Tons", ascending=False))
     
     # ----- Tab 2: Exporters Breakdown -----
     with tab_export:
         st.subheader("Exporters Breakdown for Selected Competitor")
-        # Allow the user to choose one competitor from the top 10 by volume.
-        candidate_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
+        # Toggle: Show only top 10 competitors or all.
+        show_top_exporters = st.checkbox("Show only top 10 competitors", value=True, key="show_top_exporters")
+        if show_top_exporters:
+            candidate_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
+        else:
+            candidate_competitors = sorted(data["Consignee"].dropna().unique().tolist())
+            
         if candidate_competitors:
             selected_competitor = st.selectbox("Select a Competitor:", candidate_competitors, key="ci_selected_competitor")
             comp_data = data[data["Consignee"] == selected_competitor]
@@ -88,13 +97,18 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     # ----- Tab 3: Trends & Growth -----
     with tab_trends:
         st.subheader("Competitor Trends Over Time")
-        # Create a pivot table for overall trends.
         trends_df = data.groupby(["Consignee", "Period"])["Tons"].sum().unstack(fill_value=0)
         st.line_chart(trends_df)
         
         st.markdown("---")
         st.subheader("Detailed Growth Analysis")
-        candidate_for_growth = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
+        # Toggle: Show top 10 or all competitors for growth analysis.
+        show_top_growth = st.checkbox("Show only top 10 competitors", value=True, key="show_top_growth")
+        if show_top_growth:
+            candidate_for_growth = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
+        else:
+            candidate_for_growth = sorted(data["Consignee"].dropna().unique().tolist())
+            
         if candidate_for_growth:
             selected_for_growth = st.selectbox("Select Competitor for Growth Analysis:", candidate_for_growth, key="ci_growth")
             comp_trend = data[data["Consignee"] == selected_for_growth].groupby("Period")["Tons"].sum()
@@ -110,13 +124,13 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     
     # ----- Tab 4: Detailed Analysis -----
     with tab_detailed:
-        st.subheader("Deep Dive: Detailed Competitor Analysis")
+        st.subheader("Detailed Competitor Analysis")
         st.markdown("Select one or more competitors to compare detailed metrics and trends.")
         all_competitors = sorted(data["Consignee"].dropna().unique().tolist())
         selected_comps = st.multiselect("Select Competitors:", all_competitors, default=all_competitors[:3], key="ci_detailed")
         if selected_comps:
             detailed_data = data[data["Consignee"].isin(selected_comps)]
-            # Show a combined line chart comparing trends.
+            # Combined line chart for comparison.
             trends_comp = detailed_data.groupby(["Consignee", "Period"])["Tons"].sum().reset_index()
             fig_compare = px.line(
                 trends_comp,
@@ -127,7 +141,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                 markers=True
             )
             st.plotly_chart(fig_compare, use_container_width=True)
-            # Also display a pivot table of volumes.
+            # Pivot table for detailed breakdown.
             pivot_table = detailed_data.pivot_table(index="Consignee", columns="Period", values="Tons", aggfunc="sum", fill_value=0)
             st.markdown("#### Detailed Volume Pivot Table")
             st.dataframe(pivot_table)
