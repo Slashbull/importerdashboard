@@ -26,11 +26,8 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=lo
 logger = logging.getLogger(__name__)
 
 def update_query_params(params: dict):
-    """Update URL query parameters."""
-    try:
-        st.set_query_params(**params)
-    except AttributeError:
-        st.experimental_set_query_params(**params)
+    """Update URL query parameters using st.set_query_params."""
+    st.set_query_params(**params)
 
 def authenticate_user():
     """Display a login form and validate credentials."""
@@ -59,9 +56,10 @@ def logout_button():
 
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Preprocess data by converting 'Tons' to numeric,
-    creating a datetime column ('Period_dt') from Month and Year,
-    and an ordered categorical 'Period' for time-series analysis.
+    Preprocess the dataset:
+      - Convert 'Tons' to numeric.
+      - Create a datetime column ('Period_dt') from Month and Year.
+      - Create an ordered categorical 'Period' for time-series analysis.
     """
     for col in ["Tons"]:
         if col in df.columns:
@@ -84,7 +82,9 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
-    """Load CSV data with caching."""
+    """
+    Load CSV data with caching.
+    """
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
     except Exception as e:
@@ -122,6 +122,8 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
+        # Permanently show filters in the sidebar:
+        st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
@@ -131,14 +133,18 @@ def upload_data():
     return df
 
 def display_data_preview(df: pd.DataFrame):
-    """Display a preview (first 50 rows) and summary statistics of the data."""
+    """
+    Display a preview (first 50 rows) and summary statistics of the data.
+    """
     st.markdown("### 🔍 Data Preview (First 50 Rows)")
     st.dataframe(df.head(50))
     st.markdown("### 📊 Data Summary")
     st.write(df.describe(include="all"))
 
 def get_current_data():
-    """Return filtered data if available; otherwise, return raw uploaded data."""
+    """
+    Return filtered data if available; otherwise, return raw uploaded data.
+    """
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 def add_custom_css():
@@ -173,7 +179,9 @@ def add_custom_css():
     st.markdown(custom_css, unsafe_allow_html=True)
 
 def display_header():
-    """Display a fixed header with the dashboard title and current page."""
+    """
+    Display a fixed header with the dashboard title and current page.
+    """
     current_page = st.session_state.get("page", "Home")
     header_html = f"""
     <div class="fixed-header">
@@ -184,7 +192,9 @@ def display_header():
     st.markdown(header_html, unsafe_allow_html=True)
 
 def display_footer():
-    """Display a simple footer."""
+    """
+    Display a simple footer.
+    """
     footer_html = """
     <div style="text-align: center; padding: 10px; color: #666;">
         © 2025 Your Company. All rights reserved.
@@ -197,20 +207,29 @@ def main():
     add_custom_css()
     display_header()
     
-    # Use sidebar radio buttons for navigation
-    nav_options = ["Home", "Market Overview", "Competitor Intelligence", "Supplier Performance",
-                   "State-Level Insights", "Product Insights", "Alerts & Forecasting", "Reporting"]
+    # Sidebar navigation using radio buttons.
+    nav_options = [
+        "Home",
+        "Market Overview",
+        "Competitor Intelligence",
+        "Supplier Performance",
+        "State-Level Insights",
+        "Product Insights",
+        "Alerts & Forecasting",
+        "Reporting"
+    ]
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
     
-    # Sidebar: Advanced Filters (collapsible)
-    with st.sidebar.expander("Advanced Filters", expanded=False):
-        st.write("Filters will be active once data is uploaded.")
+    # Permanently display filters if data is loaded.
+    if "uploaded_data" in st.session_state:
+        st.sidebar.header("Filters")
+        filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
+        st.session_state["filtered_data"] = filtered_df
     
     authenticate_user()
     logout_button()
     
-    # Routing based on selected page
     if selected_page == "Home":
         st.markdown('<div class="main-content">', unsafe_allow_html=True)
         st.header("Executive Summary & Data Upload")
