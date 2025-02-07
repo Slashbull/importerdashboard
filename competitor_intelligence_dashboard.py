@@ -20,19 +20,19 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     # Ensure 'Tons' is numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create "Period" field if not present.
+    # Create a "Period" field if not present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
     # ---------------------------
     # Compute Competitor Summary Metrics
     # ---------------------------
-    # Assume each unique "Consignee" represents a competitor.
+    # We assume each unique "Consignee" represents a competitor.
     comp_summary = data.groupby("Consignee")["Tons"].sum().reset_index()
     total_comp_volume = comp_summary["Tons"].sum()
     avg_volume = comp_summary["Tons"].mean() if not comp_summary.empty else 0
 
-    # Compute recent period-over-period growth for each competitor.
+    # Compute period-over-period growth for each competitor.
     growth_list = []
     for comp in comp_summary["Consignee"]:
         comp_data = data[data["Consignee"] == comp].groupby("Period")["Tons"].sum().sort_index()
@@ -46,7 +46,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     worst_growth = comp_summary["Recent Growth (%)"].min() if not comp_summary.empty else 0
 
     # ---------------------------
-    # Layout: Four Tabs (Summary, Exporters Breakdown, Trends & Growth, Detailed Analysis)
+    # Layout: Four Tabs
     # ---------------------------
     tab_summary, tab_export, tab_trends, tab_detailed = st.tabs([
         "Summary", "Exporters Breakdown", "Trends & Growth", "Detailed Analysis"
@@ -60,7 +60,6 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         col2.metric("Average Volume per Competitor", f"{avg_volume:,.2f}")
         col3.metric("Best Recent Growth (%)", f"{best_growth:,.2f}")
         col4.metric("Worst Recent Growth (%)", f"{worst_growth:,.2f}")
-        
         st.markdown("---")
         st.subheader("Detailed Competitor Summary")
         st.dataframe(comp_summary.sort_values("Tons", ascending=False))
@@ -127,35 +126,11 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     with tab_detailed:
         st.subheader("Detailed Competitor Analysis")
         st.markdown("Select one or more competitors to compare detailed metrics and trends.")
-        # Default: select all competitors.
         all_competitors = sorted(data["Consignee"].dropna().unique().tolist())
         selected_comps = st.multiselect("Select Competitors:", all_competitors, default=all_competitors, key="ci_detailed")
         if selected_comps:
             detailed_data = data[data["Consignee"].isin(selected_comps)]
-            # Let the user choose which periods to include in the pivot table.
-            all_periods = sorted(detailed_data["Period"].dropna().unique().tolist())
-            selected_periods = st.multiselect("Select Period(s) for Pivot Table:", all_periods, default=all_periods, key="ci_period")
-            # Create a pivot table with the selected periods.
-            pivot_table = detailed_data.pivot_table(
-                index="Consignee",
-                columns="Period",
-                values="Tons",
-                aggfunc="sum",
-                fill_value=0
-            )
-            if selected_periods:
-                pivot_table = pivot_table[[col for col in pivot_table.columns if col in selected_periods]]
-            # Add row totals.
-            pivot_table["Total"] = pivot_table.sum(axis=1)
-            # Add a total row.
-            total_row = pd.DataFrame(pivot_table.sum(axis=0)).T
-            total_row.index = ["Total"]
-            pivot_table_with_total = pd.concat([pivot_table, total_row])
-            
-            st.markdown("#### Detailed Volume Pivot Table (with Totals)")
-            st.dataframe(pivot_table_with_total)
-            
-            # Combined line chart for competitor comparison.
+            # Combined line chart for overall trends.
             trends_comp = detailed_data.groupby(["Consignee", "Period"])["Tons"].sum().reset_index()
             fig_compare = px.line(
                 trends_comp,
@@ -166,6 +141,79 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                 markers=True
             )
             st.plotly_chart(fig_compare, use_container_width=True)
+            
+            # Pivot table for detailed monthly analysis with totals.
+            pivot_table = detailed_data.pivot_table(
+                index="Consignee",
+                columns="Period",
+                values="Tons",
+                aggfunc="sum",
+                fill_value=0
+            )
+            pivot_table["Total"] = pivot_table.sum(axis=1)
+            total_row = pd.DataFrame(pivot_table.sum(axis=0)).T
+            total_row.index = ["Total"]
+            pivot_table_with_total = pd.concat([pivot_table, total_row])
+            st.markdown("#### Detailed Volume Pivot Table (with Totals)")
+            st.dataframe(pivot_table_with_total)
+            
+            # EXPANDER: Monthly Analysis
+            with st.expander("Monthly Analysis"):
+                st.markdown("##### Monthly Volume and Trends")
+                # Allow the user to select which periods (month-year) to include.
+                all_periods = sorted(detailed_data["Period"].dropna().unique().tolist())
+                selected_periods = st.multiselect("Select Period(s):", all_periods, default=all_periods, key="ci_period")
+                monthly_pivot = detailed_data.pivot_table(
+                    index="Consignee",
+                    columns="Period",
+                    values="Tons",
+                    aggfunc="sum",
+                    fill_value=0
+                )
+                if selected_periods:
+                    monthly_pivot = monthly_pivot[[col for col in monthly_pivot.columns if col in selected_periods]]
+                monthly_pivot["Total"] = monthly_pivot.sum(axis=1)
+                monthly_total_row = pd.DataFrame(monthly_pivot.sum(axis=0)).T
+                monthly_total_row.index = ["Total"]
+                monthly_pivot_with_total = pd.concat([monthly_pivot, monthly_total_row])
+                st.dataframe(monthly_pivot_with_total)
+                monthly_trends = detailed_data.groupby(["Consignee", "Period"])["Tons"].sum().reset_index()
+                fig_monthly = px.line(
+                    monthly_trends,
+                    x="Period",
+                    y="Tons",
+                    color="Consignee",
+                    title="Monthly Trends Comparison",
+                    markers=True
+                )
+                st.plotly_chart(fig_monthly, use_container_width=True)
+            
+            # EXPANDER: Yearly Analysis
+            with st.expander("Yearly Analysis"):
+                st.markdown("##### Yearly Volume and Trends")
+                # Create a pivot table based on the Year field.
+                yearly_pivot = detailed_data.pivot_table(
+                    index="Consignee",
+                    columns="Year",
+                    values="Tons",
+                    aggfunc="sum",
+                    fill_value=0
+                )
+                yearly_pivot["Total"] = yearly_pivot.sum(axis=1)
+                yearly_total_row = pd.DataFrame(yearly_pivot.sum(axis=0)).T
+                yearly_total_row.index = ["Total"]
+                yearly_pivot_with_total = pd.concat([yearly_pivot, yearly_total_row])
+                st.dataframe(yearly_pivot_with_total)
+                yearly_trends = detailed_data.groupby(["Consignee", "Year"])["Tons"].sum().reset_index()
+                fig_yearly = px.line(
+                    yearly_trends,
+                    x="Year",
+                    y="Tons",
+                    color="Consignee",
+                    title="Yearly Trends Comparison",
+                    markers=True
+                )
+                st.plotly_chart(fig_yearly, use_container_width=True)
         else:
             st.info("Please select at least one competitor for detailed analysis.")
     
