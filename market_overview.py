@@ -19,7 +19,7 @@ def market_overview_dashboard(data: pd.DataFrame):
 
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
 
-    # Create and Order the "Period" Column using datetime
+    # Create and Order the "Period" Column using datetime conversion
     if "Period" not in data.columns:
         try:
             data["Period_dt"] = data.apply(lambda row: datetime.strptime(f"{row['Month']} {row['Year']}", "%b %Y"), axis=1)
@@ -31,13 +31,7 @@ def market_overview_dashboard(data: pd.DataFrame):
         period_labels = [dt.strftime("%b-%Y") for dt in sorted_periods]
         data["Period"] = pd.Categorical(data["Period"], categories=period_labels, ordered=True)
     
-    # Date Range Filtering
-    min_date = data["Period_dt"].min().date()
-    max_date = data["Period_dt"].max().date()
-    date_range = st.sidebar.date_input("Select Date Range", [min_date, max_date])
-    if len(date_range) == 2:
-        start_date, end_date = date_range
-        data = data[(data["Period_dt"].dt.date >= start_date) & (data["Period_dt"].dt.date <= end_date)]
+    # (Note: No date-range filter is added here since your data contains Month/Year only.)
     
     # KPI Calculations
     total_imports = data["Tons"].sum()
@@ -45,7 +39,7 @@ def market_overview_dashboard(data: pd.DataFrame):
     unique_exporters = data["Exporter"].nunique()
     avg_imports = total_imports / unique_consignees if unique_consignees > 0 else 0
     
-    # Calculate MoM Growth using the last two periods
+    # Calculate Month-over-Month (MoM) Growth using the last two periods
     unique_periods = list(data["Period"].cat.categories)
     if len(unique_periods) >= 2:
         last_period = unique_periods[-1]
@@ -56,9 +50,9 @@ def market_overview_dashboard(data: pd.DataFrame):
     else:
         mom_growth = 0
 
-    # Tabbed Layout: Summary, Trends, Breakdown
+    # Tabbed Layout
     tab_summary, tab_trends, tab_breakdown = st.tabs(["Summary", "Trends", "Breakdown"])
-
+    
     with tab_summary:
         st.subheader("Key Performance Indicators")
         col1, col2, col3, col4, col5 = st.columns(5)
@@ -76,7 +70,7 @@ def market_overview_dashboard(data: pd.DataFrame):
                            title="Market Share by Consignee", hole=0.4,
                            hover_data={"Percentage":":.2f"})
         st.plotly_chart(fig_donut, use_container_width=True)
-
+    
     with tab_trends:
         st.subheader("Overall Monthly Trends")
         monthly_trends = data.groupby("Period")["Tons"].sum().reset_index()
@@ -94,7 +88,7 @@ def market_overview_dashboard(data: pd.DataFrame):
             fig_yearly = px.line(yearly_trends, x="Month", y="Tons", color="Year",
                                  title="Monthly Trends by Year", markers=True)
             st.plotly_chart(fig_yearly, use_container_width=True)
-
+    
     with tab_breakdown:
         st.subheader("Top Entities")
         colA, colB = st.columns(2)
@@ -114,15 +108,14 @@ def market_overview_dashboard(data: pd.DataFrame):
             st.plotly_chart(fig_top_exp, use_container_width=True)
         st.markdown("---")
         st.subheader("Importer/Exporter Contribution")
-        st.markdown("This treemap shows how each importer (Consignee) connects with various exporters. Segment size represents total Tons.")
+        st.markdown("This treemap shows how each importer (Consignee) is connected with various exporters. Segment size represents total Tons.")
         contribution = data.groupby(["Consignee", "Exporter"])["Tons"].sum().reset_index()
         fig_treemap = px.treemap(contribution, path=["Consignee", "Exporter"], values="Tons",
-                                 title="Importer/Exporter Contribution Treemap",
-                                 color="Tons", color_continuous_scale="Blues",
-                                 hover_data={"Tons": True})
+                                 title="Importer/Exporter Contribution Treemap", color="Tons",
+                                 color_continuous_scale="Blues", hover_data={"Tons": True})
         st.plotly_chart(fig_treemap, use_container_width=True)
         st.markdown("#### Detailed Contribution Table")
         simple_table = contribution.sort_values("Tons", ascending=False)
         st.dataframe(simple_table)
-
+    
     st.success("✅ Market Overview Dashboard Loaded Successfully!")
