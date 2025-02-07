@@ -11,7 +11,7 @@ import config
 from filters import smart_apply_filters as apply_filters
 
 # Import dashboard modules
-from market_overview_dashboard import market_overview_dashboard
+from market_overview import market_overview_dashboard
 from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
