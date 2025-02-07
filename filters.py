@@ -15,7 +15,7 @@ def classify_mark(mark: str, threshold: int = 70) -> str:
     """
     if not isinstance(mark, str):
         return "Unknown"
-    # Candidate categories – these can be extended or customized.
+    # Candidate categories – these can be extended or configured.
     categories = ["Safawi", "Sukkari", "Sugar", "Phoenix", "Unmanufactured"]
     best_match = process.extractOne(mark, categories, scorer=fuzz.token_set_ratio)
     if best_match and best_match[1] >= threshold:
@@ -31,15 +31,19 @@ def smart_apply_filters(df: pd.DataFrame):
     st.sidebar.header("🔍 Global Data Filters")
     filtered_df = df.copy()
 
-    # Fuzzy classify products if not already present.
+    # Automatically classify products using a fixed threshold of 70.
     if "Mark" in filtered_df.columns and "Product" not in filtered_df.columns:
-        threshold_value = st.sidebar.slider("Set Fuzzy Matching Threshold", 50, 100, 70, step=5, key="fuzzy_threshold")
+        threshold_value = 70
         with st.spinner("Classifying products..."):
             filtered_df["Product"] = filtered_df["Mark"].apply(
                 lambda x: classify_mark(x, threshold=threshold_value)
             )
     
     def dynamic_multiselect(label: str, column: str, current_df: pd.DataFrame):
+        """
+        Create a dynamic multiselect widget for the given column.
+        If no selection is made, return all available options.
+        """
         if column not in current_df.columns:
             st.sidebar.error(f"Column '{column}' not found.")
             st.error(f"Missing column: {column}.")
@@ -49,12 +53,10 @@ def smart_apply_filters(df: pd.DataFrame):
             options = sorted(options, key=lambda m: MONTH_ORDER.get(m, 99))
         else:
             options = sorted(options)
-        if not options:
-            st.sidebar.warning(f"No available options for {column}.")
-            return []
-        options_with_all = ["All"] + options
-        selected = st.sidebar.multiselect(f"📌 {label}:", options_with_all, default=["All"], key=f"multiselect_{column}")
-        return options if "All" in selected or not selected else selected
+        selected = st.sidebar.multiselect(f"📌 {label}:", options, default=[], key=f"multiselect_{column}")
+        if not selected:
+            return options
+        return selected
 
     selected_years = dynamic_multiselect("Select Year", "Year", filtered_df)
     if selected_years is not None:
