@@ -11,24 +11,18 @@ def market_overview_dashboard(data: pd.DataFrame):
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
 
-    required_columns = [
-        "SR NO.", "Job No.", "Consignee", "Exporter", "Mark", 
-        "Tons", "Month", "Year", "Consignee State"
-    ]
+    required_columns = ["SR NO.", "Job No.", "Consignee", "Exporter", "Mark", "Tons", "Month", "Year", "Consignee State"]
     missing = [col for col in required_columns if col not in data.columns]
     if missing:
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Convert Tons to numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
 
-    # Create an ordered "Period" field if not already present.
+    # Create an ordered "Period" field.
     if "Period" not in data.columns:
         try:
-            data["Period_dt"] = data.apply(
-                lambda row: datetime.strptime(f"{row['Month']} {row['Year']}", "%b %Y"), axis=1
-            )
+            data["Period_dt"] = data.apply(lambda row: datetime.strptime(f"{row['Month']} {row['Year']}", "%b %Y"), axis=1)
         except Exception as e:
             st.error("Error parsing 'Month' and 'Year'. Ensure they are in 'Mon' format and numeric.")
             return
@@ -53,8 +47,10 @@ def market_overview_dashboard(data: pd.DataFrame):
     else:
         mom_growth = 0
 
-    # Create three tabs for layout.
-    tab_summary, tab_trends, tab_breakdown = st.tabs(["Summary", "Trends", "Breakdown"])
+    # Layout using tabs.
+    tab_summary, tab_trends, tab_breakdown, tab_custom = st.tabs(
+        ["Summary", "Trends", "Breakdown", "Custom Analysis"]
+    )
     
     with tab_summary:
         st.subheader("Key Performance Indicators")
@@ -66,7 +62,6 @@ def market_overview_dashboard(data: pd.DataFrame):
         col5.metric("MoM Growth (%)", f"{mom_growth:,.2f}")
         st.markdown("---")
         st.subheader("Market Share Overview")
-        # Compute market share by consignee.
         cons_share = data.groupby("Consignee")["Tons"].sum().reset_index()
         total = cons_share["Tons"].sum()
         cons_share["Percentage"] = (cons_share["Tons"] / total) * 100
@@ -94,12 +89,9 @@ def market_overview_dashboard(data: pd.DataFrame):
         st.plotly_chart(fig_line, use_container_width=True)
         if data["Year"].nunique() > 1:
             st.markdown("#### Trends by Year")
-            # Group by Year and Month.
             yearly_trends = data.groupby(["Year", "Month"])["Tons"].sum().reset_index()
-            month_order = {
-                "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
-            }
+            month_order = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+                           "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
             yearly_trends["Month_Order"] = yearly_trends["Month"].map(month_order)
             yearly_trends = yearly_trends.sort_values("Month_Order")
             fig_yearly = px.line(
@@ -159,4 +151,15 @@ def market_overview_dashboard(data: pd.DataFrame):
         simple_table = contribution.sort_values("Tons", ascending=False)
         st.dataframe(simple_table)
     
+    with tab_custom:
+        st.subheader("Custom Analysis")
+        st.markdown("Here you can implement additional interactive analysis options. For example, select a specific state or product to drill down on detailed performance, or compare trends between different groups.")
+        # Example: Let user select a Consignee State and view the corresponding data.
+        states = sorted(data["Consignee State"].dropna().unique().tolist())
+        selected_state = st.selectbox("Select a State for Custom Analysis:", states, key="custom_state")
+        state_data = data[data["Consignee State"] == selected_state]
+        st.markdown(f"**Data for {selected_state}:**")
+        st.dataframe(state_data)
+        st.markdown("You could extend this section with more interactive widgets for additional custom analysis.")
+
     st.success("✅ Market Overview Dashboard Loaded Successfully!")
