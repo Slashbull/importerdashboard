@@ -6,7 +6,7 @@ from datetime import datetime
 def market_overview_dashboard(data: pd.DataFrame):
     st.title("📊 Market Overview Dashboard")
     
-    # Data & Column Validation
+    # Validate required columns.
     if data is None or data.empty:
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
@@ -19,7 +19,7 @@ def market_overview_dashboard(data: pd.DataFrame):
 
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
 
-    # Create and Order the "Period" Column using datetime conversion
+    # Create an ordered "Period" field.
     if "Period" not in data.columns:
         try:
             data["Period_dt"] = data.apply(lambda row: datetime.strptime(f"{row['Month']} {row['Year']}", "%b %Y"), axis=1)
@@ -31,15 +31,12 @@ def market_overview_dashboard(data: pd.DataFrame):
         period_labels = [dt.strftime("%b-%Y") for dt in sorted_periods]
         data["Period"] = pd.Categorical(data["Period"], categories=period_labels, ordered=True)
     
-    # (Note: No date-range filter is added here since your data contains Month/Year only.)
-    
-    # KPI Calculations
+    # Compute KPIs.
     total_imports = data["Tons"].sum()
     unique_consignees = data["Consignee"].nunique()
     unique_exporters = data["Exporter"].nunique()
     avg_imports = total_imports / unique_consignees if unique_consignees > 0 else 0
-    
-    # Calculate Month-over-Month (MoM) Growth using the last two periods
+
     unique_periods = list(data["Period"].cat.categories)
     if len(unique_periods) >= 2:
         last_period = unique_periods[-1]
@@ -50,7 +47,7 @@ def market_overview_dashboard(data: pd.DataFrame):
     else:
         mom_growth = 0
 
-    # Tabbed Layout
+    # Layout using tabs.
     tab_summary, tab_trends, tab_breakdown = st.tabs(["Summary", "Trends", "Breakdown"])
     
     with tab_summary:
@@ -108,7 +105,7 @@ def market_overview_dashboard(data: pd.DataFrame):
             st.plotly_chart(fig_top_exp, use_container_width=True)
         st.markdown("---")
         st.subheader("Importer/Exporter Contribution")
-        st.markdown("This treemap shows how each importer (Consignee) is connected with various exporters. Segment size represents total Tons.")
+        st.markdown("This treemap shows how each importer (Consignee) connects with various exporters. Segment size represents total Tons.")
         contribution = data.groupby(["Consignee", "Exporter"])["Tons"].sum().reset_index()
         fig_treemap = px.treemap(contribution, path=["Consignee", "Exporter"], values="Tons",
                                  title="Importer/Exporter Contribution Treemap", color="Tons",
