@@ -15,7 +15,7 @@ def classify_mark(mark: str, threshold: int = 70) -> str:
     """
     if not isinstance(mark, str):
         return "Unknown"
-    # Candidate categories – these can be extended or configured further.
+    # Candidate categories – these can be extended or customized.
     categories = ["Safawi", "Sukkari", "Sugar", "Phoenix", "Unmanufactured"]
     best_match = process.extractOne(mark, categories, scorer=fuzz.token_set_ratio)
     if best_match and best_match[1] >= threshold:
@@ -29,28 +29,21 @@ def smart_apply_filters(df: pd.DataFrame):
     Returns the filtered DataFrame and the unit column ("Tons").
     """
     st.sidebar.header("🔍 Global Data Filters")
-
-    # Work on a copy so the original data remains intact.
     filtered_df = df.copy()
 
-    # Apply fuzzy classification for product if not already present.
+    # Fuzzy classify products if not already present.
     if "Mark" in filtered_df.columns and "Product" not in filtered_df.columns:
-        threshold_value = st.sidebar.slider("Set Fuzzy Matching Threshold", 50, 100, 70, step=5)
+        threshold_value = st.sidebar.slider("Set Fuzzy Matching Threshold", 50, 100, 70, step=5, key="fuzzy_threshold")
         with st.spinner("Classifying products..."):
             filtered_df["Product"] = filtered_df["Mark"].apply(
                 lambda x: classify_mark(x, threshold=threshold_value)
             )
-
+    
     def dynamic_multiselect(label: str, column: str, current_df: pd.DataFrame):
-        """
-        Create a dynamic multiselect widget for the given column.
-        Returns the list of selected values (defaults to all if "All" is selected).
-        """
         if column not in current_df.columns:
             st.sidebar.error(f"Column '{column}' not found.")
             st.error(f"Missing column: {column}.")
             return None
-
         options = current_df[column].dropna().unique().tolist()
         if column == "Month":
             options = sorted(options, key=lambda m: MONTH_ORDER.get(m, 99))
@@ -60,10 +53,9 @@ def smart_apply_filters(df: pd.DataFrame):
             st.sidebar.warning(f"No available options for {column}.")
             return []
         options_with_all = ["All"] + options
-        selected = st.sidebar.multiselect(f"📌 {label}:", options_with_all, default=["All"])
+        selected = st.sidebar.multiselect(f"📌 {label}:", options_with_all, default=["All"], key=f"multiselect_{column}")
         return options if "All" in selected or not selected else selected
 
-    # Apply filters in order.
     selected_years = dynamic_multiselect("Select Year", "Year", filtered_df)
     if selected_years is not None:
         filtered_df = filtered_df[filtered_df["Year"].isin(selected_years)]
@@ -88,7 +80,6 @@ def smart_apply_filters(df: pd.DataFrame):
     if selected_products is not None:
         filtered_df = filtered_df[filtered_df["Product"].isin(selected_products)]
     
-    # Ensure "Tons" is numeric.
     unit_column = "Tons"
     if unit_column in filtered_df.columns:
         filtered_df[unit_column] = pd.to_numeric(filtered_df[unit_column], errors="coerce")
