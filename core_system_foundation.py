@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def update_query_params(params: dict):
     """
-    Update URL query parameters using the stable st.set_query_params API.
+    Update URL query parameters using st.set_query_params.
     """
     st.set_query_params(**params)
 
@@ -128,7 +128,6 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Apply filters initially and store filtered data.
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
@@ -140,7 +139,7 @@ def upload_data():
 def update_filters():
     """
     Explicitly update filters and store the filtered DataFrame in session state.
-    Called when the user presses the 'Apply Filters' button.
+    This function is triggered by the 'Apply Filters' button.
     """
     if "uploaded_data" in st.session_state:
         df = st.session_state["uploaded_data"]
@@ -148,7 +147,11 @@ def update_filters():
         st.session_state["filtered_data"] = filtered_df
         st.success("Filters applied successfully.")
         logger.info("Filters updated.")
-        st.experimental_rerun()
+        # Force a rerun to update all dashboard views.
+        try:
+            st.experimental_rerun()
+        except Exception as e:
+            logger.error("Error during rerun: %s", e)
 
 def display_data_preview(df: pd.DataFrame):
     """
@@ -182,14 +185,9 @@ def add_custom_css():
             justify-content: space-between;
             align-items: center;
         }
-        .fixed-header h1 {
-            margin: 0;
-            font-size: 1.8em;
-        }
+        .fixed-header h1 { margin: 0; font-size: 1.8em; }
         /* Main content margin to avoid overlap with header */
-        .main-content {
-            margin-top: 70px;
-        }
+        .main-content { margin-top: 70px; }
         /* Sidebar styling */
         .sidebar .sidebar-content { font-size: 14px; }
     </style>
@@ -225,7 +223,7 @@ def main():
     add_custom_css()
     display_header()
     
-    # Use sidebar radio for main navigation.
+    # Sidebar navigation using radio buttons.
     nav_options = [
         "Home",
         "Market Overview",
@@ -248,7 +246,6 @@ def main():
     authenticate_user()
     logout_button()
     
-    # Routing: "Home" for data upload and executive summary; others read filtered data.
     if selected_page == "Home":
         st.markdown('<div class="main-content">', unsafe_allow_html=True)
         st.header("Executive Summary & Data Upload")
