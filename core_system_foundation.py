@@ -98,11 +98,10 @@ def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess it,
     and store both raw and filtered data in session state.
-    Data is persisted for the duration of the session.
+    Data persists for the duration of the session.
     On the Home page, filters are not displayed.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
-    # Check if data is already uploaded.
     if "uploaded_data" in st.session_state:
         st.info("Data is already loaded. Use 'Reset Data' (or 'Reset Filters') to clear current settings.")
         return st.session_state["uploaded_data"]
@@ -130,7 +129,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # On non-Home pages, filters will be displayed.
+        # On non‑Home pages, filters are displayed.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -142,20 +141,19 @@ def upload_data():
 
 def reset_filters():
     """
-    Reset all filter selections by clearing the keys used by the multiselect widgets.
+    Reset all filter selections by explicitly setting the multiselect widget keys to empty lists.
     This forces the filters to return to their default state.
     """
-    keys_to_reset = ["multiselect_Year", "multiselect_Month", "multiselect_Consignee State",
-                     "multiselect_Consignee", "multiselect_Exporter", "multiselect_Product"]
+    keys_to_reset = [
+        "multiselect_Year", "multiselect_Month", "multiselect_Consignee State",
+        "multiselect_Consignee", "multiselect_Exporter", "multiselect_Product"
+    ]
     for key in keys_to_reset:
-        if key in st.session_state:
-            del st.session_state[key]
+        st.session_state[key] = []  # Explicitly reset to empty list
     st.rerun()
 
 def get_current_data():
-    """
-    Return filtered data if available; otherwise, return raw uploaded data.
-    """
+    """Return filtered data if available; otherwise, return raw uploaded data."""
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 def display_footer():
@@ -184,7 +182,7 @@ def main():
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
 
-    # Add Reset Data and Reset Filters buttons.
+    # Add Reset Data and Reset Filters buttons (only if data is already loaded).
     if "uploaded_data" in st.session_state:
         st.sidebar.markdown("**Data Status:**")
         st.sidebar.success("Data is already loaded.")
@@ -195,7 +193,7 @@ def main():
         if st.sidebar.button("Reset Filters", key="reset_filters"):
             reset_filters()
 
-    # Permanently display filters in the sidebar on non‑Home pages.
+    # On non‑Home pages, always display filters in the sidebar.
     if selected_page != "Home" and "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
@@ -205,21 +203,21 @@ def main():
     logout_button()
     
     if selected_page == "Home":
-        st.markdown('<div>', unsafe_allow_html=True)
+        st.markdown('<div class="main-content">', unsafe_allow_html=True)
         st.header("Executive Summary & Data Upload")
         df = upload_data()
         if df is not None and not df.empty:
-            # On the Home page, do not display data preview.
+            # On the Home page, provide a download button in the Filters section.
             st.sidebar.download_button("📥 Download Processed Data", df.to_csv(index=False).encode("utf-8"), "processed_data.csv", "text/csv")
         else:
             st.info("Please upload your data to view insights.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         data = get_current_data()
         if data is None or data.empty:
             st.error("No data loaded. Please upload your data on the Home page first.")
         else:
-            st.markdown('<div>', unsafe_allow_html=True)
+            st.markdown('<div class="main-content">', unsafe_allow_html=True)
             if selected_page == "Market Overview":
                 market_overview_dashboard(data)
             elif selected_page == "Competitor Intelligence":
@@ -234,7 +232,7 @@ def main():
                 ai_based_alerts_forecasting(data)
             elif selected_page == "Reporting":
                 reporting_data_exports(data)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
     
     display_footer()
 
