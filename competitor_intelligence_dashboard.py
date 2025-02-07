@@ -19,19 +19,18 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     # Ensure "Tons" is numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create a "Period" field if not already present.
+    # Create a "Period" field if not present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
     # ---------------------------
     # Compute Competitor Summary Metrics
     # ---------------------------
-    # We assume each unique "Consignee" represents a competitor.
     comp_summary = data.groupby("Consignee")["Tons"].sum().reset_index()
     total_comp_volume = comp_summary["Tons"].sum()
-    avg_comp_volume = comp_summary["Tons"].mean() if not comp_summary.empty else 0
+    avg_volume = comp_summary["Tons"].mean() if not comp_summary.empty else 0
 
-    # Compute recent period-over-period growth for each competitor.
+    # Compute period-over-period growth for each competitor.
     growth_list = []
     for comp in comp_summary["Consignee"]:
         comp_data = data[data["Consignee"] == comp].groupby("Period")["Tons"].sum().sort_index()
@@ -45,7 +44,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     worst_growth = comp_summary["Recent Growth (%)"].min() if not comp_summary.empty else 0
 
     # ---------------------------
-    # Layout: Use four tabs: Summary, Exporters Breakdown, Trends & Growth, Detailed Analysis.
+    # Layout: Four Tabs
     # ---------------------------
     tab_summary, tab_export, tab_trends, tab_detailed = st.tabs([
         "Summary", "Exporters Breakdown", "Trends & Growth", "Detailed Analysis"
@@ -56,7 +55,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.subheader("Competitor Summary Metrics")
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total Competitor Volume (Tons)", f"{total_comp_volume:,.2f}")
-        col2.metric("Average Volume per Competitor", f"{avg_comp_volume:,.2f}")
+        col2.metric("Average Volume per Competitor", f"{avg_volume:,.2f}")
         col3.metric("Best Recent Growth (%)", f"{best_growth:,.2f}")
         col4.metric("Worst Recent Growth (%)", f"{worst_growth:,.2f}")
         
@@ -67,7 +66,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
     # ----- Tab 2: Exporters Breakdown -----
     with tab_export:
         st.subheader("Exporters Breakdown for Selected Competitor")
-        # Toggle: Show only top 10 competitors or all.
+        # Toggle option: show only top 10 competitors or all.
         show_top_exporters = st.checkbox("Show only top 10 competitors", value=True, key="show_top_exporters")
         if show_top_exporters:
             candidate_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
@@ -102,7 +101,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         
         st.markdown("---")
         st.subheader("Detailed Growth Analysis")
-        # Toggle: Show top 10 or all competitors for growth analysis.
+        # Toggle option: show only top 10 competitors or all.
         show_top_growth = st.checkbox("Show only top 10 competitors", value=True, key="show_top_growth")
         if show_top_growth:
             candidate_for_growth = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
@@ -127,10 +126,11 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.subheader("Detailed Competitor Analysis")
         st.markdown("Select one or more competitors to compare detailed metrics and trends.")
         all_competitors = sorted(data["Consignee"].dropna().unique().tolist())
-        selected_comps = st.multiselect("Select Competitors:", all_competitors, default=all_competitors[:3], key="ci_detailed")
+        # Default to select all competitors.
+        selected_comps = st.multiselect("Select Competitors:", all_competitors, default=all_competitors, key="ci_detailed")
         if selected_comps:
             detailed_data = data[data["Consignee"].isin(selected_comps)]
-            # Combined line chart for comparison.
+            # Combined line chart comparing trends.
             trends_comp = detailed_data.groupby(["Consignee", "Period"])["Tons"].sum().reset_index()
             fig_compare = px.line(
                 trends_comp,
@@ -141,10 +141,24 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                 markers=True
             )
             st.plotly_chart(fig_compare, use_container_width=True)
-            # Pivot table for detailed breakdown.
-            pivot_table = detailed_data.pivot_table(index="Consignee", columns="Period", values="Tons", aggfunc="sum", fill_value=0)
-            st.markdown("#### Detailed Volume Pivot Table")
-            st.dataframe(pivot_table)
+            
+            # Create a pivot table with a Total column and Total row.
+            pivot_table = detailed_data.pivot_table(
+                index="Consignee",
+                columns="Period",
+                values="Tons",
+                aggfunc="sum",
+                fill_value=0
+            )
+            # Calculate row totals.
+            pivot_table["Total"] = pivot_table.sum(axis=1)
+            # Calculate column totals.
+            total_row = pd.DataFrame(pivot_table.sum(axis=0)).T
+            total_row.index = ["Total"]
+            pivot_table_with_total = pd.concat([pivot_table, total_row])
+            
+            st.markdown("#### Detailed Volume Pivot Table (with Totals)")
+            st.dataframe(pivot_table_with_total)
         else:
             st.info("Please select at least one competitor for detailed analysis.")
     
