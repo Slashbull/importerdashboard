@@ -26,15 +26,11 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=lo
 logger = logging.getLogger(__name__)
 
 def update_query_params(params: dict):
-    """
-    Update URL query parameters using st.set_query_params.
-    """
+    """Update URL query parameters using st.set_query_params."""
     st.set_query_params(**params)
 
 def authenticate_user():
-    """
-    Display a login form and validate credentials.
-    """
+    """Display a login form and validate credentials."""
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
     if not st.session_state["authenticated"]:
@@ -53,9 +49,7 @@ def authenticate_user():
         st.stop()
 
 def logout_button():
-    """
-    Display a logout button that clears the session and refreshes the app.
-    """
+    """Display a logout button that clears the session and refreshes the app."""
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
         st.experimental_rerun()
@@ -88,9 +82,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
-    """
-    Load CSV data with caching.
-    """
+    """Load CSV data with caching."""
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
     except Exception as e:
@@ -128,6 +120,8 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
+        # Permanently display filters in the sidebar:
+        st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
@@ -136,36 +130,15 @@ def upload_data():
         st.info("No data loaded yet. Please upload a file or provide a valid Google Sheet link.")
     return df
 
-def update_filters():
-    """
-    Explicitly update filters and store the filtered DataFrame in session state.
-    This function is triggered by the 'Apply Filters' button.
-    """
-    if "uploaded_data" in st.session_state:
-        df = st.session_state["uploaded_data"]
-        filtered_df, _ = apply_filters(df)
-        st.session_state["filtered_data"] = filtered_df
-        st.success("Filters applied successfully.")
-        logger.info("Filters updated.")
-        # Force a rerun to update all dashboard views.
-        try:
-            st.experimental_rerun()
-        except Exception as e:
-            logger.error("Error during rerun: %s", e)
-
 def display_data_preview(df: pd.DataFrame):
-    """
-    Display a preview (first 50 rows) and summary statistics of the data.
-    """
+    """Display a preview (first 50 rows) and summary statistics of the data."""
     st.markdown("### 🔍 Data Preview (First 50 Rows)")
     st.dataframe(df.head(50))
     st.markdown("### 📊 Data Summary")
     st.write(df.describe(include="all"))
 
 def get_current_data():
-    """
-    Return filtered data if available; otherwise, return raw uploaded data.
-    """
+    """Return filtered data if available; otherwise, return raw uploaded data."""
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 def add_custom_css():
@@ -185,9 +158,14 @@ def add_custom_css():
             justify-content: space-between;
             align-items: center;
         }
-        .fixed-header h1 { margin: 0; font-size: 1.8em; }
+        .fixed-header h1 {
+            margin: 0;
+            font-size: 1.8em;
+        }
         /* Main content margin to avoid overlap with header */
-        .main-content { margin-top: 70px; }
+        .main-content {
+            margin-top: 70px;
+        }
         /* Sidebar styling */
         .sidebar .sidebar-content { font-size: 14px; }
     </style>
@@ -195,9 +173,7 @@ def add_custom_css():
     st.markdown(custom_css, unsafe_allow_html=True)
 
 def display_header():
-    """
-    Display a fixed header with the dashboard title and current page.
-    """
+    """Display a fixed header with the dashboard title and current page."""
     current_page = st.session_state.get("page", "Home")
     header_html = f"""
     <div class="fixed-header">
@@ -208,9 +184,7 @@ def display_header():
     st.markdown(header_html, unsafe_allow_html=True)
 
 def display_footer():
-    """
-    Display a simple footer.
-    """
+    """Display a simple footer."""
     footer_html = """
     <div style="text-align: center; padding: 10px; color: #666;">
         © 2025 Your Company. All rights reserved.
@@ -223,7 +197,7 @@ def main():
     add_custom_css()
     display_header()
     
-    # Sidebar navigation using radio buttons.
+    # Use sidebar radio for main navigation.
     nav_options = [
         "Home",
         "Market Overview",
@@ -237,11 +211,11 @@ def main():
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
     
-    # Sidebar: Advanced Filters with an explicit "Apply Filters" button.
-    with st.sidebar.expander("Advanced Filters", expanded=True):
-        st.write("Adjust filter settings below (they appear after data is loaded).")
-        if st.button("Apply Filters"):
-            update_filters()
+    # Permanently display filters in the sidebar if data is loaded.
+    if "uploaded_data" in st.session_state:
+        st.sidebar.header("Filters")
+        filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
+        st.session_state["filtered_data"] = filtered_df
     
     authenticate_user()
     logout_button()
