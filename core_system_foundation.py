@@ -26,7 +26,7 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=lo
 logger = logging.getLogger(__name__)
 
 def update_query_params(params: dict):
-    """Update URL query parameters using st.query_params.update."""
+    """Update URL query parameters using st.query_params.update()."""
     try:
         st.query_params.update(**params)
     except Exception as e:
@@ -55,7 +55,7 @@ def logout_button():
     """Display a logout button that clears the session and refreshes the app."""
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
-        st.rerun()  # Use st.rerun() per the latest API
+        st.rerun()
 
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -99,11 +99,12 @@ def upload_data():
     Handle data upload from CSV or Google Sheets, preprocess it,
     and store both raw and filtered data in session state.
     Data is persisted for the duration of the session.
+    On the Home page, filters are not displayed.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     # Check if data is already uploaded.
     if "uploaded_data" in st.session_state:
-        st.info("Data is already loaded. Use the 'Reset Data' button to upload a new file.")
+        st.info("Data is already loaded. Use 'Reset Data' (or 'Reset Filters') to clear current settings.")
         return st.session_state["uploaded_data"]
     
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
@@ -129,7 +130,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Permanently display filters in the sidebar.
+        # On non-Home pages, filters will be displayed.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -139,13 +140,23 @@ def upload_data():
         st.info("No data loaded yet. Please upload a file or provide a valid Google Sheet link.")
     return df
 
+def reset_filters():
+    """
+    Reset all filter selections by clearing the keys used by the multiselect widgets.
+    This forces the filters to return to their default state.
+    """
+    keys_to_reset = ["multiselect_Year", "multiselect_Month", "multiselect_Consignee State",
+                     "multiselect_Consignee", "multiselect_Exporter", "multiselect_Product"]
+    for key in keys_to_reset:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.rerun()
+
 def get_current_data():
     """
     Return filtered data if available; otherwise, return raw uploaded data.
     """
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
-
-# (Removed display_header and its CSS as per request.)
 
 def display_footer():
     """Display a simple footer."""
@@ -158,10 +169,6 @@ def display_footer():
 
 def main():
     st.set_page_config(page_title="Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
-    # Optionally, you can remove add_custom_css() if you want to eliminate all custom styling.
-    # add_custom_css()  <-- removed if not needed
-    
-    # (display_header() has been removed as requested.)
     
     # Sidebar navigation using radio buttons.
     nav_options = [
@@ -177,17 +184,19 @@ def main():
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
 
-    # Add a Reset Data button if data is already loaded.
+    # Add Reset Data and Reset Filters buttons.
     if "uploaded_data" in st.session_state:
         st.sidebar.markdown("**Data Status:**")
         st.sidebar.success("Data is already loaded.")
         if st.sidebar.button("Reset Data", key="reset_data"):
             st.session_state.pop("uploaded_data", None)
             st.session_state.pop("filtered_data", None)
-            st.rerun()  # Use st.rerun() per latest API
-    
-    # Permanently display filters in the sidebar if data is loaded.
-    if "uploaded_data" in st.session_state:
+            st.rerun()
+        if st.sidebar.button("Reset Filters", key="reset_filters"):
+            reset_filters()
+
+    # Permanently display filters in the sidebar on non‑Home pages.
+    if selected_page != "Home" and "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
         st.session_state["filtered_data"] = filtered_df
@@ -196,21 +205,21 @@ def main():
     logout_button()
     
     if selected_page == "Home":
-        st.markdown('<div class="main-content">', unsafe_allow_html=True)
+        st.markdown('<div>', unsafe_allow_html=True)
         st.header("Executive Summary & Data Upload")
         df = upload_data()
         if df is not None and not df.empty:
-            # On Home page, provide a download button in the Filters section.
+            # On the Home page, do not display data preview.
             st.sidebar.download_button("📥 Download Processed Data", df.to_csv(index=False).encode("utf-8"), "processed_data.csv", "text/csv")
         else:
             st.info("Please upload your data to view insights.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
         data = get_current_data()
         if data is None or data.empty:
             st.error("No data loaded. Please upload your data on the Home page first.")
         else:
-            st.markdown('<div class="main-content">', unsafe_allow_html=True)
+            st.markdown('<div>', unsafe_allow_html=True)
             if selected_page == "Market Overview":
                 market_overview_dashboard(data)
             elif selected_page == "Competitor Intelligence":
@@ -225,7 +234,7 @@ def main():
                 ai_based_alerts_forecasting(data)
             elif selected_page == "Reporting":
                 reporting_data_exports(data)
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
     
     display_footer()
 
