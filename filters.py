@@ -16,7 +16,7 @@ def classify_mark(mark: str, threshold: int = 70) -> str:
     if not isinstance(mark, str):
         return "Unknown"
     # Candidate categories – these can be extended or configured.
-    categories = ["Safawi", "Sukkari", "Sugar", "Phoenix", "Unmanufactured"]
+    categories = ["Safawi", "Sukkari", "Sugar", "Phoenix", "Unmanufactured", Rabia]
     best_match = process.extractOne(mark, categories, scorer=fuzz.token_set_ratio)
     if best_match and best_match[1] >= threshold:
         return best_match[0]
