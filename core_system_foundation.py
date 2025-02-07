@@ -82,9 +82,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
-    """
-    Load CSV data with caching.
-    """
+    """Load CSV data with caching."""
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
     except Exception as e:
@@ -122,7 +120,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Permanently show filters in the sidebar:
+        # Permanently display filters in the sidebar.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -133,18 +131,14 @@ def upload_data():
     return df
 
 def display_data_preview(df: pd.DataFrame):
-    """
-    Display a preview (first 50 rows) and summary statistics of the data.
-    """
+    """Display a preview (first 50 rows) and summary statistics of the data."""
     st.markdown("### 🔍 Data Preview (First 50 Rows)")
     st.dataframe(df.head(50))
     st.markdown("### 📊 Data Summary")
     st.write(df.describe(include="all"))
 
 def get_current_data():
-    """
-    Return filtered data if available; otherwise, return raw uploaded data.
-    """
+    """Return filtered data if available; otherwise, return raw uploaded data."""
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 def add_custom_css():
@@ -179,9 +173,7 @@ def add_custom_css():
     st.markdown(custom_css, unsafe_allow_html=True)
 
 def display_header():
-    """
-    Display a fixed header with the dashboard title and current page.
-    """
+    """Display a fixed header with the dashboard title and current page."""
     current_page = st.session_state.get("page", "Home")
     header_html = f"""
     <div class="fixed-header">
@@ -192,9 +184,7 @@ def display_header():
     st.markdown(header_html, unsafe_allow_html=True)
 
 def display_footer():
-    """
-    Display a simple footer.
-    """
+    """Display a simple footer."""
     footer_html = """
     <div style="text-align: center; padding: 10px; color: #666;">
         © 2025 Your Company. All rights reserved.
@@ -221,7 +211,7 @@ def main():
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
     
-    # Permanently display filters if data is loaded.
+    # Permanently display filters in the sidebar if data is loaded.
     if "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
