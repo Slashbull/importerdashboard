@@ -26,8 +26,11 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=lo
 logger = logging.getLogger(__name__)
 
 def update_query_params(params: dict):
-    """Update URL query parameters using st.set_query_params."""
-    st.set_query_params(**params)
+    """Update URL query parameters."""
+    try:
+        st.set_query_params(**params)
+    except AttributeError:
+        st.experimental_set_query_params(**params)
 
 def authenticate_user():
     """Display a login form and validate credentials."""
@@ -120,8 +123,6 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Permanently display filters in the sidebar:
-        st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
@@ -131,14 +132,14 @@ def upload_data():
     return df
 
 def display_data_preview(df: pd.DataFrame):
-    """Display a preview (first 50 rows) and summary statistics of the data."""
+    """Display a preview (first 50 rows) and summary of the data."""
     st.markdown("### 🔍 Data Preview (First 50 Rows)")
     st.dataframe(df.head(50))
     st.markdown("### 📊 Data Summary")
     st.write(df.describe(include="all"))
 
 def get_current_data():
-    """Return filtered data if available; otherwise, return raw uploaded data."""
+    """Return filtered data if available; otherwise, raw uploaded data."""
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
 def add_custom_css():
@@ -197,7 +198,7 @@ def main():
     add_custom_css()
     display_header()
     
-    # Use sidebar radio for main navigation.
+    # Use sidebar radio for navigation
     nav_options = [
         "Home",
         "Market Overview",
@@ -211,15 +212,14 @@ def main():
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
     
-    # Permanently display filters in the sidebar if data is loaded.
-    if "uploaded_data" in st.session_state:
-        st.sidebar.header("Filters")
-        filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
-        st.session_state["filtered_data"] = filtered_df
+    # Sidebar: Advanced Filters (collapsible)
+    with st.sidebar.expander("Advanced Filters", expanded=False):
+        st.write("Filters will be active after data is loaded.")
     
     authenticate_user()
     logout_button()
     
+    # Routing based on selected page.
     if selected_page == "Home":
         st.markdown('<div class="main-content">', unsafe_allow_html=True)
         st.header("Executive Summary & Data Upload")
