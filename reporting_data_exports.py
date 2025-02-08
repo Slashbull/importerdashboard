@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
-from weasyprint import HTML
+from weasyprint import HTML  # WeasyPrint converts HTML to PDF without external binaries
 
 def generate_summary(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -61,8 +61,8 @@ def generate_auto_insights(df: pd.DataFrame) -> str:
 
 def export_to_csv(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
     """
-    Export selected columns to CSV, optionally prepending summary metrics and auto insights.
-    For CSV, insights and summary are prepended as commented lines.
+    Export selected columns to CSV.
+    Optionally, prepend summary metrics and auto insights as commented lines.
     """
     data_to_export = df[columns]
     csv_buffer = io.StringIO()
@@ -84,7 +84,10 @@ def export_to_csv(df: pd.DataFrame, columns: list, include_summary: bool, includ
 def export_to_pdf(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
     """
     Generate a PDF report by converting an HTML string to PDF using WeasyPrint.
-    The report includes a summary section (with metrics and auto-generated insights) and a data report.
+    The report includes:
+      - A header with a timestamp.
+      - A summary section with key metrics and auto insights.
+      - A data report section with the selected columns.
     """
     html = f"""
     <html>
@@ -124,7 +127,7 @@ def export_to_pdf(df: pd.DataFrame, columns: list, include_summary: bool, includ
         <h1>Import/Export Report</h1>
         <p>Report generated on: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
     """
-    # Summary Section.
+    # Add Report Summary Section.
     html += "<h2>Report Summary</h2>"
     if include_summary:
         summary_df = generate_summary(df)
@@ -133,7 +136,7 @@ def export_to_pdf(df: pd.DataFrame, columns: list, include_summary: bool, includ
         insights = generate_auto_insights(df)
         html += f'<p class="insights"><strong>Auto Insights:</strong> {insights}</p>'
     
-    # Data Report Section.
+    # Add Data Report Section.
     html += "<h2>Data Report</h2>"
     data_to_export = df[columns]
     html += data_to_export.to_html(index=False, border=0)
