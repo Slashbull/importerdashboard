@@ -16,7 +16,7 @@ from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
-from reporting_data_exports import reporting_data_exports
+from reporting_data_exports import overall_dashboard_report
 from product_insights_dashboard import product_insights_dashboard
 
 # -----------------------------------------------------------------------------
