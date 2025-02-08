@@ -16,16 +16,13 @@ from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
-from reporting_data_exports import overall_dashboard_report
+from reporting_data_exports import reporting_data_exports
 from product_insights_dashboard import product_insights_dashboard
 
 # -----------------------------------------------------------------------------
 # Logging configuration
 # -----------------------------------------------------------------------------
-logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -44,7 +41,7 @@ def update_query_params(params: dict):
 def authenticate_user():
     """
     Display a login form and validate credentials.
-    If the login is successful, the app is immediately rerun.
+    On successful login, the app immediately reruns.
     """
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
@@ -59,7 +56,7 @@ def authenticate_user():
                 st.session_state["page"] = "Home"
                 update_query_params({"page": "Home"})
                 logger.info("User authenticated successfully.")
-                st.rerun()  # Immediately rerun to remove login form
+                st.rerun()  # Immediately rerun to clear the login form
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
                 logger.warning("Failed login attempt for username: %s", username)
@@ -77,9 +74,9 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Preprocess the dataset:
-      - Convert 'Tons' to numeric (removing commas and extra spaces).
+      - Convert 'Tons' to numeric (remove commas, trim spaces).
       - Create a datetime column ('Period_dt') from Month and Year.
-      - Create an ordered categorical 'Period' field (format "Mon-Year") for time‑series analysis.
+      - Create an ordered categorical 'Period' (format "Mon-Year") for time‑series analysis.
     """
     for col in ["Tons"]:
         if col in df.columns:
@@ -89,7 +86,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         try:
             df["Period_dt"] = df.apply(lambda row: datetime.strptime(f"{row['Month']} {row['Year']}", "%b %Y"), axis=1)
         except Exception as e:
-            st.error("Error parsing 'Month' and 'Year'. Ensure they are in 'Mon' format and numeric.")
+            st.error("Error parsing 'Month' and 'Year'. Ensure Month is in abbreviated format (e.g., Jan) and Year is numeric.")
             logger.error("Error parsing Period: %s", e)
             return df
         df["Period"] = df["Period_dt"].dt.strftime("%b-%Y")
@@ -113,13 +110,12 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 
 def upload_data():
     """
-    Handle data upload from CSV or Google Sheets.
-    Preprocess the data and store both raw and filtered data in session state.
+    Handle data upload from CSV or Google Sheets, preprocess the data,
+    and store both the raw and filtered data in session state.
     On the Home page, filters are hidden.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
     
-    # If data is already loaded, inform the user.
     if "uploaded_data" in st.session_state:
         st.info("Data is already loaded. Use 'Reset Data' or 'Reset Filters' to clear current settings.")
         return st.session_state["uploaded_data"]
@@ -147,7 +143,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # On non‑Home pages, display filters.
+        # Display filters on non‑Home pages.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -159,8 +155,8 @@ def upload_data():
 
 def reset_filters():
     """
-    Reset all filter selections by setting the keys for filter widgets to empty lists.
-    Then, rerun the app to update the filtered data.
+    Reset all filter selections by clearing the keys for filter widgets,
+    then rerun the app to update filtered data.
     """
     keys_to_reset = [
         "multiselect_Year", "multiselect_Month", "multiselect_Consignee State",
@@ -216,7 +212,7 @@ def main():
         if st.sidebar.button("Reset Filters", key="reset_filters"):
             reset_filters()
 
-    # Display Filters only on non-Home pages.
+    # Display filters only on non‑Home pages.
     if selected_page != "Home" and "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
@@ -230,7 +226,6 @@ def main():
         st.header("Executive Summary & Data Upload")
         df = upload_data()
         if df is not None and not df.empty:
-            # On Home page, provide a download button for the processed data.
             st.sidebar.download_button(
                 "📥 Download Processed Data",
                 df.to_csv(index=False).encode("utf-8"),
