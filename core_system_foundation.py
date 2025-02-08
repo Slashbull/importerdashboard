@@ -56,7 +56,7 @@ def authenticate_user():
                 st.session_state["page"] = "Home"
                 update_query_params({"page": "Home"})
                 logger.info("User authenticated successfully.")
-                st.rerun()  # Immediately rerun to remove the login form
+                st.rerun()  # Immediately rerun to clear the login form
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
                 logger.warning("Failed login attempt for username: %s", username)
@@ -143,7 +143,6 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # Display filters on non‑Home pages.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -254,10 +253,11 @@ def main():
             elif selected_page == "Alerts & Forecasting":
                 ai_based_alerts_forecasting(data)
             elif selected_page == "Reporting":
-                # Here, you can choose to show either the reporting exports or an overall dashboard report.
-                # For this example, we'll call reporting_data_exports.
-                reporting_data_exports(data)
-                # Alternatively, you could call overall_dashboard_report(data) to show a composite report.
+                report_option = st.radio("Choose Reporting Option:", ("Interactive Overall Report", "Export Report"))
+                if report_option == "Interactive Overall Report":
+                    overall_dashboard_report(data)
+                else:
+                    reporting_data_exports(data)
             st.markdown('</div>', unsafe_allow_html=True)
     
     display_footer()
