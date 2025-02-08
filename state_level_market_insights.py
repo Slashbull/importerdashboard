@@ -17,17 +17,22 @@ def state_level_market_insights(data: pd.DataFrame):
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
+    # Ensure "Tons" is numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
+    
+    # Create "Period" field if not present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # Predefined month ordering for sorting purposes.
-    month_order = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                   "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+    # Predefined month ordering for proper sorting.
+    month_order = {
+        "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+        "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
+    }
     
-    # --- Tab Layout: Overview, Trends, Growth Analysis, Detailed Analysis ---
-    tab_overview, tab_trends, tab_growth, tab_details = st.tabs([
-        "Overview", "Trends", "Growth Analysis", "Detailed Analysis"
+    # --- Tab Layout: Overview, Trends, Detailed Analysis ---
+    tab_overview, tab_trends, tab_detailed = st.tabs([
+        "Overview", "Trends", "Detailed Analysis"
     ])
     
     # ----- Tab 1: Overview -----
@@ -88,59 +93,10 @@ def state_level_market_insights(data: pd.DataFrame):
         else:
             st.info("Please select at least one state for detailed analysis.")
     
-    # ----- Tab 3: Growth Analysis -----
-    with tab_growth:
-        st.subheader("Growth Analysis by State (Slope Chart)")
-        pivot_table = data.pivot_table(
-            index="Consignee State",
-            columns="Period",
-            values="Tons",
-            aggfunc="sum",
-            fill_value=0
-        )
-        periods = sorted(pivot_table.columns)
-        if len(periods) < 2:
-            st.info("Not enough periods available for growth analysis.")
-        else:
-            first_period = periods[0]
-            last_period = periods[-1]
-            growth_df = pivot_table[[first_period, last_period]].reset_index()
-            growth_df["Growth (%)"] = ((growth_df[last_period] - growth_df[first_period]) / 
-                                       growth_df[first_period].replace(0, pd.NA)) * 100
-            growth_df["Growth (%)"] = growth_df["Growth (%)"].round(2)
-            st.markdown(f"#### Growth from {first_period} to {last_period}")
-            # Use Plotly Graph Objects for a slope chart.
-            import plotly.graph_objects as go
-            fig_slope = go.Figure()
-            for idx, row in growth_df.iterrows():
-                fig_slope.add_trace(go.Scatter(
-                    x=[row[first_period], row[last_period]],
-                    y=[row["Consignee State"], row["Consignee State"]],
-                    mode="lines+markers",
-                    marker=dict(size=10),
-                    line=dict(width=2),
-                    name=row["Consignee State"],
-                    hovertemplate=(
-                        f"State: {row['Consignee State']}<br>" +
-                        f"{first_period}: {row[first_period]:,.2f} Tons<br>" +
-                        f"{last_period}: {row[last_period]:,.2f} Tons<br>" +
-                        f"Growth: {row['Growth (%)'] if pd.notna(row['Growth (%)']) else 'N/A'}%"
-                    )
-                ))
-            fig_slope.update_layout(
-                title=f"State Growth from {first_period} to {last_period}",
-                xaxis_title="Volume (Tons)",
-                yaxis_title="Consignee State",
-                showlegend=False
-            )
-            st.plotly_chart(fig_slope, use_container_width=True)
-            st.markdown("#### Detailed Growth Data")
-            st.dataframe(growth_df[["Consignee State", first_period, last_period, "Growth (%)"]])
-    
-    # ----- Tab 4: Detailed Analysis -----
-    with tab_details:
+    # ----- Tab 3: Detailed Analysis -----
+    with tab_detailed:
         st.subheader("Detailed State-Level Data")
-        # Create a pivot table for all periods.
+        # Pivot table of volumes by state and period.
         detailed_pivot = data.pivot_table(
             index="Consignee State",
             columns="Period",
@@ -148,13 +104,14 @@ def state_level_market_insights(data: pd.DataFrame):
             aggfunc="sum",
             fill_value=0
         )
+        # Display the pivot table.
         st.dataframe(detailed_pivot)
         
         st.markdown("#### Summary Table by State")
         summary_table = data.groupby("Consignee State")["Tons"].sum().reset_index().sort_values("Tons", ascending=False)
         st.dataframe(summary_table)
         
-        # Additional Expanders for further drill-down.
+        # --- Expanders for Additional Analysis ---
         with st.expander("Monthly Analysis"):
             st.markdown("##### Monthly Volume and Trends")
             all_periods = sorted(data["Period"].dropna().unique().tolist())
