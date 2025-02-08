@@ -86,7 +86,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         try:
             df["Period_dt"] = df.apply(lambda row: datetime.strptime(f"{row['Month']} {row['Year']}", "%b %Y"), axis=1)
         except Exception as e:
-            st.error("Error parsing 'Month' and 'Year'. Ensure Month is in abbreviated format (e.g., Jan) and Year is numeric.")
+            st.error("Error parsing 'Month' and 'Year'. Ensure they are in abbreviated format (e.g., Jan) and Year is numeric.")
             logger.error("Error parsing Period: %s", e)
             return df
         df["Period"] = df["Period_dt"].dt.strftime("%b-%Y")
@@ -209,9 +209,12 @@ def main():
             st.session_state.pop("filtered_data", None)
             st.rerun()
         if st.sidebar.button("Reset Filters", key="reset_filters"):
-            reset_filters()
+            for key in ["multiselect_Year", "multiselect_Month", "multiselect_Consignee State",
+                        "multiselect_Consignee", "multiselect_Exporter", "multiselect_Product"]:
+                st.session_state[key] = []
+            st.rerun()
 
-    # Display filters only on non‑Home pages.
+    # Display filters on non‑Home pages.
     if selected_page != "Home" and "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
