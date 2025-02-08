@@ -16,7 +16,7 @@ from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
-from reporting_data_exports import reporting_data_exports
+from reporting_data_exports import reporting_data_exports, overall_dashboard_report
 from product_insights_dashboard import product_insights_dashboard
 
 # -----------------------------------------------------------------------------
@@ -56,7 +56,7 @@ def authenticate_user():
                 st.session_state["page"] = "Home"
                 update_query_params({"page": "Home"})
                 logger.info("User authenticated successfully.")
-                st.rerun()  # Immediately rerun to clear the login form
+                st.rerun()  # Immediately rerun to remove the login form
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
                 logger.warning("Failed login attempt for username: %s", username)
@@ -111,7 +111,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 def upload_data():
     """
     Handle data upload from CSV or Google Sheets, preprocess the data,
-    and store both the raw and filtered data in session state.
+    and store both raw and filtered data in session state.
     On the Home page, filters are hidden.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
@@ -143,7 +143,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # On non‑Home pages, display filters.
+        # Display filters on non‑Home pages.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -254,7 +254,10 @@ def main():
             elif selected_page == "Alerts & Forecasting":
                 ai_based_alerts_forecasting(data)
             elif selected_page == "Reporting":
+                # Here, you can choose to show either the reporting exports or an overall dashboard report.
+                # For this example, we'll call reporting_data_exports.
                 reporting_data_exports(data)
+                # Alternatively, you could call overall_dashboard_report(data) to show a composite report.
             st.markdown('</div>', unsafe_allow_html=True)
     
     display_footer()
