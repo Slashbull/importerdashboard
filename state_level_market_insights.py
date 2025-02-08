@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import json
-import os
 
 def state_level_market_insights(data: pd.DataFrame):
     st.title("🌍 State-Level Market Insights Dashboard")
@@ -19,21 +17,22 @@ def state_level_market_insights(data: pd.DataFrame):
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
-    # Convert "Tons" to numeric.
+    # Ensure "Tons" is numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create "Period" field if not already present.
+    # Create "Period" field if not present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # Predefined month ordering (if needed for sorting).
-    month_order = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                   "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
-
-    # --- Tab Layout ---
-    # Four main tabs: Overview, Trends, Detailed Analysis, and Geospatial.
-    tab_overview, tab_trends, tab_detailed, tab_geo = st.tabs([
-        "Overview", "Trends", "Detailed Analysis", "Geospatial"
+    # Predefined month ordering for proper sorting.
+    month_order = {
+        "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+        "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
+    }
+    
+    # --- Tab Layout: Overview, Trends, Detailed Analysis ---
+    tab_overview, tab_trends, tab_detailed = st.tabs([
+        "Overview", "Trends", "Detailed Analysis"
     ])
     
     # ----- Tab 1: Overview -----
@@ -97,7 +96,7 @@ def state_level_market_insights(data: pd.DataFrame):
     # ----- Tab 3: Detailed Analysis -----
     with tab_detailed:
         st.subheader("Detailed State-Level Data")
-        # Pivot table by state and period.
+        # Pivot table of volumes by state and period.
         detailed_pivot = data.pivot_table(
             index="Consignee State",
             columns="Period",
@@ -105,12 +104,14 @@ def state_level_market_insights(data: pd.DataFrame):
             aggfunc="sum",
             fill_value=0
         )
+        # Display the pivot table.
         st.dataframe(detailed_pivot)
         
         st.markdown("#### Summary Table by State")
         summary_table = data.groupby("Consignee State")["Tons"].sum().reset_index().sort_values("Tons", ascending=False)
         st.dataframe(summary_table)
         
+        # --- Expanders for Additional Analysis ---
         with st.expander("Monthly Analysis"):
             st.markdown("##### Monthly Volume and Trends")
             all_periods = sorted(data["Period"].dropna().unique().tolist())
@@ -164,47 +165,5 @@ def state_level_market_insights(data: pd.DataFrame):
                 markers=True
             )
             st.plotly_chart(fig_yearly, use_container_width=True)
-    
-    # ----- Tab 4: Geospatial -----
-    with tab_geo:
-        st.subheader("Geospatial Analysis")
-        st.markdown(
-            "This map displays the total imports (in Tons) aggregated by state. "
-            "Please ensure you have a valid GeoJSON file for India states with matching state names."
-        )
-        # Load the GeoJSON file.
-        geojson_path = "india_states.geojson"  # Adjust path if needed.
-        if not os.path.exists(geojson_path):
-            st.error("🚨 GeoJSON file 'india_states.geojson' not found. Please ensure the file exists in the project directory.")
-        else:
-            try:
-                with open(geojson_path, "r") as f:
-                    geojson_data = json.load(f)
-            except Exception as e:
-                st.error("🚨 Error loading GeoJSON file.")
-                st.error(e)
-                return
-
-            # Group data by state.
-            state_data = data.groupby("Consignee State")["Tons"].sum().reset_index()
-            # Rename the column to "state" for matching.
-            state_data.rename(columns={"Consignee State": "state"}, inplace=True)
-            
-            # Create a choropleth map.
-            fig_geo = px.choropleth_mapbox(
-                state_data,
-                geojson=geojson_data,
-                locations="state",
-                featureidkey="properties.NAME_1",  # Adjust if your GeoJSON uses a different key.
-                color="Tons",
-                color_continuous_scale="Viridis",
-                mapbox_style="carto-positron",
-                zoom=3.5,
-                center={"lat": 22, "lon": 80},
-                opacity=0.7,
-                labels={"Tons": "Total Tons"}
-            )
-            fig_geo.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-            st.plotly_chart(fig_geo, use_container_width=True)
     
     st.success("✅ State-Level Market Insights Dashboard Loaded Successfully!")
