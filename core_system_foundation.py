@@ -16,15 +16,21 @@ from competitor_intelligence_dashboard import competitor_intelligence_dashboard
 from supplier_performance_dashboard import supplier_performance_dashboard
 from state_level_market_insights import state_level_market_insights
 from ai_based_alerts_forecasting import ai_based_alerts_forecasting
-from reporting_data_exports import overall_dashboard_report
+from reporting_data_exports import reporting_data_exports  # or overall_dashboard_report if renamed
 from product_insights_dashboard import product_insights_dashboard
 
 # -----------------------------------------------------------------------------
 # Logging configuration
 # -----------------------------------------------------------------------------
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
+# Query Parameters Update
+# -----------------------------------------------------------------------------
 def update_query_params(params: dict):
     """Update URL query parameters using st.query_params.update()."""
     try:
@@ -32,13 +38,17 @@ def update_query_params(params: dict):
     except Exception as e:
         logger.error("Error updating query parameters: %s", e)
 
+# -----------------------------------------------------------------------------
+# Authentication & Session Management
+# -----------------------------------------------------------------------------
 def authenticate_user():
     """
     Display a login form and validate credentials.
-    If the login is successful, immediately call st.rerun() so that the main app runs.
+    If the login is successful, the app is immediately rerun.
     """
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
+
     if not st.session_state["authenticated"]:
         st.sidebar.title("🔒 Login")
         username = st.sidebar.text_input("👤 Username", key="login_username")
@@ -49,7 +59,7 @@ def authenticate_user():
                 st.session_state["page"] = "Home"
                 update_query_params({"page": "Home"})
                 logger.info("User authenticated successfully.")
-                st.rerun()  # Immediately rerun so that the login form is no longer shown
+                st.rerun()  # Immediately rerun to remove login form
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
                 logger.warning("Failed login attempt for username: %s", username)
@@ -61,12 +71,15 @@ def logout_button():
         st.session_state.clear()
         st.rerun()
 
+# -----------------------------------------------------------------------------
+# Data Preprocessing & Ingestion
+# -----------------------------------------------------------------------------
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Preprocess the dataset:
-      - Convert 'Tons' to numeric.
+      - Convert 'Tons' to numeric (removing commas and extra spaces).
       - Create a datetime column ('Period_dt') from Month and Year.
-      - Create an ordered categorical 'Period' for time-series analysis.
+      - Create an ordered categorical 'Period' field (format "Mon-Year") for time‑series analysis.
     """
     for col in ["Tons"]:
         if col in df.columns:
@@ -100,13 +113,13 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 
 def upload_data():
     """
-    Handle data upload from CSV or Google Sheets, preprocess it,
-    and store both raw and filtered data in session state.
-    Data persists for the duration of the session.
-    On the Home page, filters are not displayed.
+    Handle data upload from CSV or Google Sheets.
+    Preprocess the data and store both raw and filtered data in session state.
+    On the Home page, filters are hidden.
     """
     st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
-    # Check if data is already uploaded.
+    
+    # If data is already loaded, inform the user.
     if "uploaded_data" in st.session_state:
         st.info("Data is already loaded. Use 'Reset Data' or 'Reset Filters' to clear current settings.")
         return st.session_state["uploaded_data"]
@@ -134,7 +147,7 @@ def upload_data():
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
-        # On non‑Home pages, filters will be displayed.
+        # On non‑Home pages, display filters.
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
@@ -146,20 +159,20 @@ def upload_data():
 
 def reset_filters():
     """
-    Reset all filter selections by explicitly setting the multiselect widget keys
-    to empty lists.
+    Reset all filter selections by setting the keys for filter widgets to empty lists.
+    Then, rerun the app to update the filtered data.
     """
     keys_to_reset = [
         "multiselect_Year", "multiselect_Month", "multiselect_Consignee State",
         "multiselect_Consignee", "multiselect_Exporter", "multiselect_Product"
     ]
     for key in keys_to_reset:
-        st.session_state[key] = []  # Reset to empty list
+        st.session_state[key] = []
     st.rerun()
 
 def get_current_data():
     """
-    Return filtered data if available; otherwise, return raw uploaded data.
+    Return the filtered data if available; otherwise, return the raw uploaded data.
     """
     return st.session_state.get("filtered_data", st.session_state.get("uploaded_data"))
 
@@ -172,10 +185,13 @@ def display_footer():
     """
     st.markdown(footer_html, unsafe_allow_html=True)
 
+# -----------------------------------------------------------------------------
+# Main Application
+# -----------------------------------------------------------------------------
 def main():
     st.set_page_config(page_title="Analytics Dashboard", layout="wide", initial_sidebar_state="expanded")
     
-    # Sidebar navigation using radio buttons.
+    # Sidebar Navigation
     nav_options = [
         "Home",
         "Market Overview",
@@ -189,7 +205,7 @@ def main():
     selected_page = st.sidebar.radio("Navigation", nav_options, index=0)
     st.session_state["page"] = selected_page
 
-    # Add Reset Data and Reset Filters buttons if data is already loaded.
+    # Add Reset Data and Reset Filters buttons if data is loaded.
     if "uploaded_data" in st.session_state:
         st.sidebar.markdown("**Data Status:**")
         st.sidebar.success("Data is already loaded.")
@@ -200,7 +216,7 @@ def main():
         if st.sidebar.button("Reset Filters", key="reset_filters"):
             reset_filters()
 
-    # Permanently display filters in the sidebar on non‑Home pages.
+    # Display Filters only on non-Home pages.
     if selected_page != "Home" and "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
@@ -214,8 +230,13 @@ def main():
         st.header("Executive Summary & Data Upload")
         df = upload_data()
         if df is not None and not df.empty:
-            # On Home page, provide a download button (no data preview).
-            st.sidebar.download_button("📥 Download Processed Data", df.to_csv(index=False).encode("utf-8"), "processed_data.csv", "text/csv")
+            # On Home page, provide a download button for the processed data.
+            st.sidebar.download_button(
+                "📥 Download Processed Data",
+                df.to_csv(index=False).encode("utf-8"),
+                "processed_data.csv",
+                "text/csv"
+            )
         else:
             st.info("Please upload your data to view insights.")
         st.markdown('</div>', unsafe_allow_html=True)
