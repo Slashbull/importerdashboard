@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import json
+import os
 
-# ----------------------------------------
-# State-Level Market Insights Dashboard
-# ----------------------------------------
 def state_level_market_insights(data: pd.DataFrame):
     st.title("🌍 State-Level Market Insights Dashboard")
     
@@ -20,20 +19,21 @@ def state_level_market_insights(data: pd.DataFrame):
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
         return
 
+    # Convert "Tons" to numeric.
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
+    
+    # Create "Period" field if not already present.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # Predefined month ordering for sorting.
-    month_order = {
-        "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-        "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
-    }
-    
-    # --- Create Tab Layout ---
-    # We add a new tab "Geospatial" in addition to Overview, Trends, Growth Analysis, and Detailed Analysis.
-    tab_overview, tab_trends, tab_growth, tab_details, tab_geo = st.tabs([
-        "Overview", "Trends", "Growth Analysis", "Detailed Analysis", "Geospatial"
+    # Predefined month ordering (if needed for sorting).
+    month_order = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+                   "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+
+    # --- Tab Layout ---
+    # Four main tabs: Overview, Trends, Detailed Analysis, and Geospatial.
+    tab_overview, tab_trends, tab_detailed, tab_geo = st.tabs([
+        "Overview", "Trends", "Detailed Analysis", "Geospatial"
     ])
     
     # ----- Tab 1: Overview -----
@@ -94,57 +94,10 @@ def state_level_market_insights(data: pd.DataFrame):
         else:
             st.info("Please select at least one state for detailed analysis.")
     
-    # ----- Tab 3: Growth Analysis -----
-    with tab_growth:
-        st.subheader("Growth Analysis by State (Slope Chart)")
-        pivot_table = data.pivot_table(
-            index="Consignee State",
-            columns="Period",
-            values="Tons",
-            aggfunc="sum",
-            fill_value=0
-        )
-        periods = sorted(pivot_table.columns)
-        if len(periods) < 2:
-            st.info("Not enough periods available for growth analysis.")
-        else:
-            first_period = periods[0]
-            last_period = periods[-1]
-            growth_df = pivot_table[[first_period, last_period]].reset_index()
-            growth_df["Growth (%)"] = ((growth_df[last_period] - growth_df[first_period]) / 
-                                       growth_df[first_period].replace(0, pd.NA)) * 100
-            growth_df["Growth (%)"] = growth_df["Growth (%)"].round(2)
-            st.markdown(f"#### Growth from {first_period} to {last_period}")
-            import plotly.graph_objects as go
-            fig_slope = go.Figure()
-            for idx, row in growth_df.iterrows():
-                fig_slope.add_trace(go.Scatter(
-                    x=[row[first_period], row[last_period]],
-                    y=[row["Consignee State"], row["Consignee State"]],
-                    mode="lines+markers",
-                    marker=dict(size=10),
-                    line=dict(width=2),
-                    name=row["Consignee State"],
-                    hovertemplate=(
-                        f"State: {row['Consignee State']}<br>" +
-                        f"{first_period}: {row[first_period]:,.2f} Tons<br>" +
-                        f"{last_period}: {row[last_period]:,.2f} Tons<br>" +
-                        f"Growth: {row['Growth (%)'] if pd.notna(row['Growth (%)']) else 'N/A'}%"
-                    )
-                ))
-            fig_slope.update_layout(
-                title=f"State Growth from {first_period} to {last_period}",
-                xaxis_title="Volume (Tons)",
-                yaxis_title="Consignee State",
-                showlegend=False
-            )
-            st.plotly_chart(fig_slope, use_container_width=True)
-            st.markdown("#### Detailed Growth Data")
-            st.dataframe(growth_df[["Consignee State", first_period, last_period, "Growth (%)"]])
-    
-    # ----- Tab 4: Detailed Analysis -----
-    with tab_details:
+    # ----- Tab 3: Detailed Analysis -----
+    with tab_detailed:
         st.subheader("Detailed State-Level Data")
+        # Pivot table by state and period.
         detailed_pivot = data.pivot_table(
             index="Consignee State",
             columns="Period",
@@ -212,48 +165,46 @@ def state_level_market_insights(data: pd.DataFrame):
             )
             st.plotly_chart(fig_yearly, use_container_width=True)
     
-    # ----- Tab 5: Geospatial -----
+    # ----- Tab 4: Geospatial -----
     with tab_geo:
         st.subheader("Geospatial Analysis")
         st.markdown(
             "This map displays the total imports (in Tons) aggregated by state. "
-            "Ensure you have a valid GeoJSON file for India states with matching state names."
+            "Please ensure you have a valid GeoJSON file for India states with matching state names."
         )
         # Load the GeoJSON file.
-        # NOTE: Replace 'india_states.geojson' with the path or URL to your GeoJSON file.
-        try:
-            import json
-            @st.cache_data(show_spinner=False)
-            def load_geojson():
-                with open("india_states.geojson", "r") as f:
+        geojson_path = "india_states.geojson"  # Adjust path if needed.
+        if not os.path.exists(geojson_path):
+            st.error("🚨 GeoJSON file 'india_states.geojson' not found. Please ensure the file exists in the project directory.")
+        else:
+            try:
+                with open(geojson_path, "r") as f:
                     geojson_data = json.load(f)
-                return geojson_data
-            geojson_data = load_geojson()
-        except Exception as e:
-            st.error("🚨 Error loading GeoJSON file. Please ensure 'india_states.geojson' is available.")
-            st.error(e)
-            return
+            except Exception as e:
+                st.error("🚨 Error loading GeoJSON file.")
+                st.error(e)
+                return
 
-        # Group data by state and sum Tons.
-        state_data = data.groupby("Consignee State")["Tons"].sum().reset_index()
-        # Rename the column to "state" if the GeoJSON expects that (adjust as needed).
-        state_data.rename(columns={"Consignee State": "state"}, inplace=True)
-        
-        # Create a choropleth map.
-        fig_geo = px.choropleth_mapbox(
-            state_data,
-            geojson=geojson_data,
-            locations="state",
-            featureidkey="properties.NAME_1",  # Adjust this key as per your GeoJSON properties
-            color="Tons",
-            color_continuous_scale="Viridis",
-            mapbox_style="carto-positron",
-            zoom=3.5,
-            center={"lat": 22, "lon": 80},
-            opacity=0.7,
-            labels={"Tons": "Total Tons"}
-        )
-        fig_geo.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-        st.plotly_chart(fig_geo, use_container_width=True)
+            # Group data by state.
+            state_data = data.groupby("Consignee State")["Tons"].sum().reset_index()
+            # Rename the column to "state" for matching.
+            state_data.rename(columns={"Consignee State": "state"}, inplace=True)
+            
+            # Create a choropleth map.
+            fig_geo = px.choropleth_mapbox(
+                state_data,
+                geojson=geojson_data,
+                locations="state",
+                featureidkey="properties.NAME_1",  # Adjust if your GeoJSON uses a different key.
+                color="Tons",
+                color_continuous_scale="Viridis",
+                mapbox_style="carto-positron",
+                zoom=3.5,
+                center={"lat": 22, "lon": 80},
+                opacity=0.7,
+                labels={"Tons": "Total Tons"}
+            )
+            fig_geo.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+            st.plotly_chart(fig_geo, use_container_width=True)
     
     st.success("✅ State-Level Market Insights Dashboard Loaded Successfully!")
