@@ -9,4 +9,3 @@ scipy
 scikit-learn
 openpyxl
 numpy
-weasyprint
