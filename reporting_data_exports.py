@@ -3,13 +3,15 @@ import pandas as pd
 import io
 from datetime import datetime
 from sklearn.linear_model import LinearRegression
+import plotly.express as px  # Added import for Plotly Express
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # SUMMARY & INSIGHTS FUNCTIONS
-# -----------------------------------------------------------------------------
+# =============================================================================
 def generate_summary(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Generate a summary DataFrame with key metrics:
+    Generate a summary DataFrame with key metrics.
+    Metrics include:
       - Total Imports (Tons)
       - Total Records
       - Average Tons per Record
@@ -26,8 +28,7 @@ def generate_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 def generate_auto_insights(df: pd.DataFrame) -> str:
     """
-    Generate a natural-language summary of key insights from the data.
-    Example insights: total imports, top importing state, and peak year.
+    Generate a natural‑language summary of key insights from the data.
     """
     try:
         total_tons = df["Tons"].sum()
@@ -44,18 +45,18 @@ def generate_auto_insights(df: pd.DataFrame) -> str:
             year_agg = df.groupby("Year")["Tons"].sum()
             top_year = year_agg.idxmax()
             top_year_tons = year_agg.max()
-            insights.append(f"The peak year was {top_year} with {top_year_tons:,.2f} tons.")
+            insights.append(f"Peak year: {top_year} with {top_year_tons:,.2f} tons.")
         return " ".join(insights)
     except Exception:
         return "Insights not available."
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # EXPORT FUNCTIONS
-# -----------------------------------------------------------------------------
+# =============================================================================
 def export_to_csv(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
     """
     Export selected columns to CSV.
-    If enabled, summary and insights are prepended as commented lines.
+    If summary/insights are enabled, prepend them as commented lines.
     """
     data_to_export = df[columns]
     csv_buffer = io.StringIO()
@@ -74,8 +75,8 @@ def export_to_csv(df: pd.DataFrame, columns: list, include_summary: bool, includ
 def export_to_excel(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
     """
     Export selected columns to an Excel file with two sheets:
-      - "Data" contains the main report.
-      - "Summary" contains key metrics and auto‑generated insights.
+      - "Data": The main report data.
+      - "Summary": Key metrics and auto‑generated insights.
     """
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -91,7 +92,7 @@ def export_to_excel(df: pd.DataFrame, columns: list, include_summary: bool, incl
 def export_to_pdf(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
     """
     Generate a PDF report by converting a styled HTML string to PDF using pdfkit.
-    The report includes a summary section (with key metrics and insights) and the data.
+    The report includes both a summary section and the data report.
     """
     try:
         import pdfkit
@@ -109,7 +110,7 @@ def export_to_pdf(df: pd.DataFrame, columns: list, include_summary: bool, includ
           h3 {{ color: #1B4F72; }}
           table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
           th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-          tr:nth-child(even){{ background-color: #f2f2f2; }}
+          tr:nth-child(even) {{ background-color: #f2f2f2; }}
           .insights {{ font-style: italic; margin-bottom: 20px; }}
         </style>
       </head>
@@ -132,14 +133,10 @@ def export_to_pdf(df: pd.DataFrame, columns: list, include_summary: bool, includ
         return None
     return pdf
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # OVERALL DASHBOARD REPORT (INTERACTIVE)
-# -----------------------------------------------------------------------------
+# =============================================================================
 def overall_dashboard_report(data: pd.DataFrame):
-    """
-    Create an overall interactive dashboard report that aggregates key metrics
-    and visualizations (market, competitor, supplier, state, and product insights) plus forecasting.
-    """
     st.title("📊 Overall Dashboard Summary Report")
     
     if data is None or data.empty:
@@ -150,7 +147,6 @@ def overall_dashboard_report(data: pd.DataFrame):
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # Global Key Metrics
     total_imports = data["Tons"].sum()
     total_records = data.shape[0]
     avg_tons = total_imports / total_records if total_records > 0 else 0
@@ -208,26 +204,26 @@ def overall_dashboard_report(data: pd.DataFrame):
     
     with tabs[5]:
         st.markdown("#### Market Forecast")
-        market = data.groupby("Period")["Tons"].sum().reset_index().sort_values("Period").reset_index(drop=True)
-        if len(market) < 3:
+        market_df = data.groupby("Period")["Tons"].sum().reset_index().sort_values("Period").reset_index(drop=True)
+        if len(market_df) < 3:
             st.info("Not enough data to generate a forecast.")
         else:
-            market["TimeIndex"] = market.index
+            market_df["TimeIndex"] = market_df.index
             model = LinearRegression()
-            X = market[["TimeIndex"]]
-            y = market["Tons"]
+            X = market_df[["TimeIndex"]]
+            y = market_df["Tons"]
             model.fit(X, y)
-            next_index = market["TimeIndex"].max() + 1
+            next_index = market_df["TimeIndex"].max() + 1
             forecast_value = model.predict([[next_index]])[0]
             forecast_text = f"Forecast for next period: {forecast_value:,.2f} Tons"
-            market["Forecast"] = model.predict(X)
+            market_df["Forecast"] = model.predict(X)
             forecast_row = pd.DataFrame({
                 "Period": ["Next Period"],
                 "Tons": [None],
                 "Forecast": [forecast_value],
                 "TimeIndex": [next_index]
             })
-            market_forecast = pd.concat([market, forecast_row], ignore_index=True)
+            market_forecast = pd.concat([market_df, forecast_row], ignore_index=True)
             st.markdown(f"**{forecast_text}**")
             fig_forecast = px.line(market_forecast, x="Period", y="Tons", title="Market Forecast", markers=True)
             fig_forecast.add_scatter(
@@ -243,11 +239,12 @@ def overall_dashboard_report(data: pd.DataFrame):
     st.subheader("Overall Report Summary")
     st.dataframe(generate_summary(data))
     st.markdown(f"**Auto Insights:** {generate_auto_insights(data)}")
+    
     st.success("✅ Overall Dashboard Summary Report Loaded Successfully!")
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # MAIN REPORTING & EXPORT FUNCTION
-# -----------------------------------------------------------------------------
+# =============================================================================
 def reporting_data_exports(data: pd.DataFrame):
     st.title("📄 Reporting & Data Exports Dashboard")
     
