@@ -214,7 +214,7 @@ def main():
                 st.session_state[key] = []
             st.rerun()
 
-    # Display filters on non‑Home pages.
+    # Display filters only on non‑Home pages.
     if selected_page != "Home" and "uploaded_data" in st.session_state:
         st.sidebar.header("Filters")
         filtered_df, _ = apply_filters(st.session_state["uploaded_data"])
