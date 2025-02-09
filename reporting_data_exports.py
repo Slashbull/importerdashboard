@@ -3,7 +3,7 @@ import pandas as pd
 import io
 from datetime import datetime
 from sklearn.linear_model import LinearRegression
-import plotly.express as px  # Ensure Plotly Express is imported
+import plotly.express as px
 
 # =============================================================================
 # SUMMARY & INSIGHTS FUNCTIONS
@@ -29,6 +29,7 @@ def generate_summary(df: pd.DataFrame) -> pd.DataFrame:
 def generate_auto_insights(df: pd.DataFrame) -> str:
     """
     Generate a natural‑language summary of key insights from the data.
+    For example: total imports, top importing state, and peak year.
     """
     try:
         total_tons = df["Tons"].sum()
@@ -51,12 +52,12 @@ def generate_auto_insights(df: pd.DataFrame) -> str:
         return "Insights not available."
 
 # =============================================================================
-# EXPORT FUNCTIONS
+# EXPORT FUNCTIONS (CSV and Excel only)
 # =============================================================================
 def export_to_csv(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
     """
     Export selected columns to CSV.
-    If summary/insights are enabled, prepend them as commented lines.
+    If summary or insights are enabled, prepend them as commented lines.
     """
     data_to_export = df[columns]
     csv_buffer = io.StringIO()
@@ -75,7 +76,7 @@ def export_to_csv(df: pd.DataFrame, columns: list, include_summary: bool, includ
 def export_to_excel(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
     """
     Export selected columns to an Excel file with two sheets:
-      - "Data": The main report data.
+      - "Data": Main report data.
       - "Summary": Key metrics and auto‑generated insights.
     """
     output = io.BytesIO()
@@ -89,56 +90,13 @@ def export_to_excel(df: pd.DataFrame, columns: list, include_summary: bool, incl
             summary_combined.to_excel(writer, index=False, sheet_name="Summary")
     return output.getvalue()
 
-def export_to_pdf(df: pd.DataFrame, columns: list, include_summary: bool, include_insights: bool) -> bytes:
-    """
-    Generate a PDF report by converting a styled HTML string to PDF using pdfkit.
-    The report includes both a summary section and the data report.
-    """
-    try:
-        import pdfkit
-    except ImportError:
-        st.error("⚠️ PDF export requires 'pdfkit'. Please install it via pip install pdfkit")
-        return None
-
-    html = f"""
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body {{ font-family: Arial, sans-serif; margin: 20px; }}
-          h2 {{ color: #2E86C1; }}
-          h3 {{ color: #1B4F72; }}
-          table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
-          th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-          tr:nth-child(even) {{ background-color: #f2f2f2; }}
-          .insights {{ font-style: italic; margin-bottom: 20px; }}
-        </style>
-      </head>
-      <body>
-        <h2>Report Summary</h2>
-    """
-    if include_summary:
-        summary_df = generate_summary(df)
-        html += summary_df.to_html(index=False, border=0)
-    if include_insights:
-        html += f'<p class="insights"><strong>Auto Insights:</strong> {generate_auto_insights(df)}</p>'
-    html += "<h2>Data Report</h2>"
-    data_to_export = df[columns]
-    html += data_to_export.to_html(index=False, border=0)
-    html += "</body></html>"
-    try:
-        pdf = pdfkit.from_string(html, False)
-    except Exception as e:
-        st.error(f"🚨 Error generating PDF: {e}")
-        return None
-    return pdf
-
 # =============================================================================
 # OVERALL DASHBOARD REPORT (INTERACTIVE)
 # =============================================================================
 def overall_dashboard_report(data: pd.DataFrame):
     st.title("📊 Overall Dashboard Summary Report")
     
+    # --- Data Validation & Preprocessing ---
     if data is None or data.empty:
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
@@ -147,6 +105,7 @@ def overall_dashboard_report(data: pd.DataFrame):
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
+    # Global KPIs
     total_imports = data["Tons"].sum()
     total_records = data.shape[0]
     avg_tons = total_imports / total_records if total_records > 0 else 0
@@ -166,7 +125,14 @@ def overall_dashboard_report(data: pd.DataFrame):
     st.subheader("Interactive Charts")
     
     # Create tabs for different aspects of the dashboard report.
-    tabs = st.tabs(["Market Overview", "Competitor Insights", "Supplier Performance", "State Insights", "Product Insights", "Forecasting"])
+    tabs = st.tabs([
+        "Market Overview", 
+        "Competitor Insights", 
+        "Supplier Performance", 
+        "State Insights", 
+        "Product Insights", 
+        "Forecasting"
+    ])
     
     # Market Overview Tab
     with tabs[0]:
@@ -270,7 +236,7 @@ def reporting_data_exports(data: pd.DataFrame):
     st.dataframe(preview_df.head(50))
     
     st.markdown("### Export Options")
-    report_format = st.radio("Report Format:", ("CSV", "Excel", "PDF"))
+    report_format = st.radio("Report Format:", ("CSV", "Excel"))
     
     if report_format == "CSV":
         csv_data = export_to_csv(data, selected_columns, include_summary, include_insights)
@@ -279,9 +245,5 @@ def reporting_data_exports(data: pd.DataFrame):
         excel_data = export_to_excel(data, selected_columns, include_summary, include_insights)
         st.download_button("📥 Download Excel Report", excel_data, "report.xlsx",
                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    elif report_format == "PDF":
-        pdf_data = export_to_pdf(data, selected_columns, include_summary, include_insights)
-        if pdf_data is not None:
-            st.download_button("📥 Download PDF Report", pdf_data, "report.pdf", "application/pdf")
     
     st.success("✅ Report Generation Ready!")
