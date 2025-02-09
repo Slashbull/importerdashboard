@@ -5,21 +5,15 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from rapidfuzz import process, fuzz
+import logging
 
-# -------------------------------
-# Caching for heavy computations
-# -------------------------------
+# Configure logging for this module
+logger = logging.getLogger(__name__)
+
 @st.cache_data(show_spinner=False)
 def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> list:
     """
-    Automatically generate candidate product categories from the 'Mark' column.
-    
-    Parameters:
-        df (pd.DataFrame): The input DataFrame.
-        num_clusters (int): Number of clusters to form (default 5).
-        
-    Returns:
-        list: A list of candidate product category labels.
+    Automatically generate candidate product categories from the 'Mark' column using TF‑IDF and KMeans.
     """
     marks = df['Mark'].dropna().tolist()
     if not marks:
@@ -27,13 +21,17 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
     
     vectorizer = TfidfVectorizer(stop_words='english')
     X = vectorizer.fit_transform(marks)
-    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-    kmeans.fit(X)
+    try:
+        kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+        kmeans.fit(X)
+    except Exception as e:
+        logger.error("KMeans clustering failed: %s", e)
+        return ["Other"]
+    
     order_centroids = kmeans.cluster_centers_.argsort()[:, ::-1]
     terms = vectorizer.get_feature_names_out()
     candidate_categories = []
     for i in range(num_clusters):
-        # Use the top 5 terms of each cluster to generate a label.
         top_terms = [terms[ind] for ind in order_centroids[i, :5]]
         label = " / ".join(top_terms)
         candidate_categories.append(label)
@@ -43,27 +41,19 @@ def generate_candidate_categories(df: pd.DataFrame, num_clusters: int = 5) -> li
 def classify_product(mark: str, candidate_categories: list, threshold: int = 70) -> str:
     """
     Classify a product description (from 'Mark') by fuzzy matching it against candidate categories.
-    
-    Parameters:
-        mark (str): The product description.
-        candidate_categories (list): List of candidate category labels.
-        threshold (int): Minimum matching score to accept a category (default 70).
-        
-    Returns:
-        str: The selected product category, or "Other" if no match meets the threshold.
     """
     if not isinstance(mark, str) or not candidate_categories:
         return "Unknown"
-    
     best_match = process.extractOne(mark, candidate_categories, scorer=fuzz.token_set_ratio)
     if best_match and best_match[1] >= threshold:
+        logger.info("Classified product '%s' as '%s' (score: %s)", mark, best_match[0], best_match[1])
         return best_match[0]
     return "Other"
 
 def product_insights_dashboard(data: pd.DataFrame):
     st.title("📈 Product Insights Dashboard")
     
-    # --- Data Validation ---
+    # Data validation
     if data is None or data.empty:
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
@@ -76,25 +66,22 @@ def product_insights_dashboard(data: pd.DataFrame):
 
     data["Tons"] = pd.to_numeric(data["Tons"], errors="coerce")
     
-    # Create a "Period" field if not present.
+    # Create "Period" field if missing.
     if "Period" not in data.columns:
         data["Period"] = data["Month"] + "-" + data["Year"].astype(str)
     
-    # Generate candidate product categories using KMeans clustering.
+    # Generate candidate product categories.
     candidate_categories = generate_candidate_categories(data, num_clusters=5)
     st.sidebar.markdown("**Generated Candidate Categories:**")
     st.sidebar.write(candidate_categories)
     
-    # Automatically classify products (if "Product" column is not already present).
+    # Classify products if "Product" is not present.
     if "Product" not in data.columns:
         data["Product"] = data["Mark"].apply(lambda x: classify_product(x, candidate_categories))
     
-    # --- Layout: Create Tabs ---
-    tab_overview, tab_trends, tab_market_share, tab_details = st.tabs([
-        "Overview", "Trends", "Market Share", "Detailed Analysis"
-    ])
+    # Layout using tabs.
+    tab_overview, tab_trends, tab_market_share, tab_details = st.tabs(["Overview", "Trends", "Market Share", "Detailed Analysis"])
     
-    # ----- Tab 1: Overview -----
     with tab_overview:
         st.subheader("Key Product Metrics")
         prod_agg = data.groupby("Product")["Tons"].sum().reset_index()
@@ -121,7 +108,6 @@ def product_insights_dashboard(data: pd.DataFrame):
         )
         st.plotly_chart(fig_top, use_container_width=True)
     
-    # ----- Tab 2: Trends -----
     with tab_trends:
         st.subheader("Overall Monthly Trends by Product")
         trends_df = data.groupby(["Product", "Period"])["Tons"].sum().reset_index()
@@ -134,11 +120,9 @@ def product_insights_dashboard(data: pd.DataFrame):
             markers=True
         )
         st.plotly_chart(fig_trends, use_container_width=True)
-        
         st.markdown("<hr>", unsafe_allow_html=True)
         st.subheader("Detailed Trends for Selected Products")
         all_products = sorted(data["Product"].dropna().unique().tolist())
-        # If no selection is made, default to all products.
         selected_products = st.multiselect("Select Product Categories", options=all_products, default=[], key="pi_select")
         if not selected_products:
             selected_products = all_products
@@ -154,19 +138,18 @@ def product_insights_dashboard(data: pd.DataFrame):
         )
         st.plotly_chart(fig_detail, use_container_width=True)
     
-    # ----- Tab 3: Market Share -----
     with tab_market_share:
         st.subheader("Market Share by Product Category")
+        prod_agg = data.groupby("Product")["Tons"].sum().reset_index()
         fig_pie = px.pie(
             prod_agg,
             names="Product",
             values="Tons",
-            title="Product Category Market Share",
+            title="Product Market Share",
             hole=0.4
         )
         st.plotly_chart(fig_pie, use_container_width=True)
     
-    # ----- Tab 4: Detailed Analysis -----
     with tab_details:
         st.subheader("Detailed Product Data")
         pivot_table = data.pivot_table(
@@ -177,7 +160,6 @@ def product_insights_dashboard(data: pd.DataFrame):
             fill_value=0
         )
         st.dataframe(pivot_table)
-        
         st.markdown("#### Summary Table by Product Category")
         summary_table = data.groupby("Product")["Tons"].sum().reset_index().sort_values("Tons", ascending=False)
         st.dataframe(summary_table)
