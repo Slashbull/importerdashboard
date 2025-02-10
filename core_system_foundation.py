@@ -56,7 +56,7 @@ def authenticate_user():
                 st.session_state["page"] = "Home"
                 update_query_params({"page": "Home"})
                 logger.info("User authenticated successfully.")
-                st.rerun()  # Immediately rerun to clear the login form
+                st.experimental_rerun()  # Immediately rerun to clear the login form
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
                 logger.warning("Failed login attempt for username: %s", username)
@@ -66,7 +66,7 @@ def logout_button():
     """Display a logout button that clears the session and refreshes the app."""
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
-        st.rerun()
+        st.experimental_rerun()
 
 # -----------------------------------------------------------------------------
 # Data Preprocessing & Ingestion
@@ -119,7 +119,31 @@ def upload_data():
     if "uploaded_data" in st.session_state:
         st.info("Data is already loaded. Use 'Reset Data' or 'Reset Filters' to clear current settings.")
         return st.session_state["uploaded_data"]
+
+    # Check if a Google Sheet link is provided in the configuration.
+    if hasattr(config, "GOOGLE_SHEET_LINK") and config.GOOGLE_SHEET_LINK.strip():
+        st.info("Loading data from the configured Google Sheet...")
+        sheet_url = config.GOOGLE_SHEET_LINK.strip()
+        sheet_name = config.DEFAULT_SHEET_NAME
+        try:
+            # Extract the sheet ID from the URL.
+            sheet_id = sheet_url.split("/d/")[1].split("/")[0]
+            csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+            response = requests.get(csv_url)
+            response.raise_for_status()
+            df = pd.read_csv(StringIO(response.text), low_memory=False)
+            st.success("✅ Google Sheet loaded successfully from configuration.")
+            df = preprocess_data(df)
+            st.session_state["uploaded_data"] = df
+            st.sidebar.header("Filters")
+            filtered_df, _ = apply_filters(df)
+            st.session_state["filtered_data"] = filtered_df
+            return df
+        except Exception as e:
+            st.error(f"🚨 Error loading Google Sheet from config: {e}")
+            logger.error("Error loading Google Sheet from config: %s", e)
     
+    # If no Google Sheet link is provided or loading fails, prompt the user.
     upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
     df = None
     if upload_option == "Upload CSV":
@@ -140,6 +164,7 @@ def upload_data():
             except Exception as e:
                 st.error(f"🚨 Error loading Google Sheet: {e}")
                 logger.error("Error loading Google Sheet: %s", e)
+    
     if df is not None and not df.empty:
         df = preprocess_data(df)
         st.session_state["uploaded_data"] = df
@@ -147,7 +172,6 @@ def upload_data():
         filtered_df, _ = apply_filters(df)
         st.session_state["filtered_data"] = filtered_df
         st.success("✅ Data loaded and filtered successfully!")
-        logger.info("Data uploaded and preprocessed successfully.")
     else:
         st.info("No data loaded yet. Please upload a file or provide a valid Google Sheet link.")
     return df
@@ -163,7 +187,7 @@ def reset_filters():
     ]
     for key in keys_to_reset:
         st.session_state[key] = []
-    st.rerun()
+    st.experimental_rerun()
 
 def get_current_data():
     """
@@ -207,12 +231,12 @@ def main():
         if st.sidebar.button("Reset Data", key="reset_data"):
             st.session_state.pop("uploaded_data", None)
             st.session_state.pop("filtered_data", None)
-            st.rerun()
+            st.experimental_rerun()
         if st.sidebar.button("Reset Filters", key="reset_filters"):
             for key in ["multiselect_Year", "multiselect_Month", "multiselect_Consignee State",
                         "multiselect_Consignee", "multiselect_Exporter", "multiselect_Product"]:
                 st.session_state[key] = []
-            st.rerun()
+            st.experimental_rerun()
 
     # Display filters only on non‑Home pages.
     if selected_page != "Home" and "uploaded_data" in st.session_state:
