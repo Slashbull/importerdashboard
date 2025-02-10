@@ -41,11 +41,11 @@ def update_query_params(params: dict):
 def authenticate_user():
     """
     Display a login form and validate credentials.
-    On successful login, the app immediately reruns.
+    If already authenticated (stored in session_state), do not ask again.
     """
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-
+    # Use setdefault to persist the authentication flag in session state.
+    st.session_state.setdefault("authenticated", False)
+    
     if not st.session_state["authenticated"]:
         st.sidebar.title("🔒 Login")
         username = st.sidebar.text_input("👤 Username", key="login_username")
@@ -56,14 +56,15 @@ def authenticate_user():
                 st.session_state["page"] = "Home"
                 update_query_params({"page": "Home"})
                 logger.info("User authenticated successfully.")
-                st.experimental_rerun()  # Immediately rerun to clear the login form
             else:
                 st.sidebar.error("🚨 Invalid Username or Password")
                 logger.warning("Failed login attempt for username: %s", username)
-        st.stop()
+        # If not authenticated, halt execution.
+        if not st.session_state["authenticated"]:
+            st.stop()
 
 def logout_button():
-    """Display a logout button that clears the session and refreshes the app."""
+    """Display a logout button that clears the session state."""
     if st.sidebar.button("🔓 Logout"):
         st.session_state.clear()
         st.experimental_rerun()
@@ -110,60 +111,56 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
 
 def upload_data():
     """
-    Handle data upload from CSV or Google Sheets, preprocess the data,
-    and store both raw and filtered data in session state.
-    On the Home page, filters are hidden.
+    Handle data ingestion:
+      - If a Google Sheet link is defined in config, load data automatically.
+      - Otherwise, prompt the user to either upload a CSV file or provide a Google Sheet link.
+      - Preprocess and cache the data in session state.
     """
-    st.markdown("<h2 style='text-align: center;'>📂 Upload or Link Data</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>📂 Data Ingestion</h2>", unsafe_allow_html=True)
     
     if "uploaded_data" in st.session_state:
         st.info("Data is already loaded. Use 'Reset Data' or 'Reset Filters' to clear current settings.")
         return st.session_state["uploaded_data"]
 
-    # Check if a Google Sheet link is provided in the configuration.
-    if hasattr(config, "GOOGLE_SHEET_LINK") and config.GOOGLE_SHEET_LINK.strip():
+    df = None
+    # If a Google Sheet link is defined in config, load it automatically.
+    if config.GOOGLE_SHEET_LINK:
         st.info("Loading data from the configured Google Sheet...")
-        sheet_url = config.GOOGLE_SHEET_LINK.strip()
+        sheet_url = config.GOOGLE_SHEET_LINK
         sheet_name = config.DEFAULT_SHEET_NAME
         try:
-            # Extract the sheet ID from the URL.
+            # Extract sheet ID from the URL.
             sheet_id = sheet_url.split("/d/")[1].split("/")[0]
             csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
             response = requests.get(csv_url)
             response.raise_for_status()
             df = pd.read_csv(StringIO(response.text), low_memory=False)
             st.success("✅ Google Sheet loaded successfully from configuration.")
-            df = preprocess_data(df)
-            st.session_state["uploaded_data"] = df
-            st.sidebar.header("Filters")
-            filtered_df, _ = apply_filters(df)
-            st.session_state["filtered_data"] = filtered_df
-            return df
         except Exception as e:
             st.error(f"🚨 Error loading Google Sheet from config: {e}")
             logger.error("Error loading Google Sheet from config: %s", e)
     
-    # If no Google Sheet link is provided or loading fails, prompt the user.
-    upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
-    df = None
-    if upload_option == "Upload CSV":
-        uploaded_file = st.file_uploader("Upload CSV File", type=["csv"],
-                                         help="Upload your CSV file containing your data.")
-        if uploaded_file is not None:
-            df = load_csv_data(uploaded_file)
-    else:
-        sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
-        sheet_name = config.DEFAULT_SHEET_NAME
-        if sheet_url and st.button("Load Google Sheet"):
-            try:
-                sheet_id = sheet_url.split("/d/")[1].split("/")[0]
-                csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-                response = requests.get(csv_url)
-                response.raise_for_status()
-                df = pd.read_csv(StringIO(response.text), low_memory=False)
-            except Exception as e:
-                st.error(f"🚨 Error loading Google Sheet: {e}")
-                logger.error("Error loading Google Sheet: %s", e)
+    # Only if no data was loaded automatically, prompt the user.
+    if df is None:
+        upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0)
+        if upload_option == "Upload CSV":
+            uploaded_file = st.file_uploader("Upload CSV File", type=["csv"],
+                                             help="Upload your CSV file containing your data.")
+            if uploaded_file is not None:
+                df = load_csv_data(uploaded_file)
+        else:
+            sheet_url = st.text_input("🔗 Enter Google Sheet Link:")
+            sheet_name = config.DEFAULT_SHEET_NAME
+            if sheet_url and st.button("Load Google Sheet"):
+                try:
+                    sheet_id = sheet_url.split("/d/")[1].split("/")[0]
+                    csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+                    response = requests.get(csv_url)
+                    response.raise_for_status()
+                    df = pd.read_csv(StringIO(response.text), low_memory=False)
+                except Exception as e:
+                    st.error(f"🚨 Error loading Google Sheet: {e}")
+                    logger.error("Error loading Google Sheet: %s", e)
     
     if df is not None and not df.empty:
         df = preprocess_data(df)
