@@ -84,7 +84,7 @@ def logout_button():
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Preprocess the dataset:
-      - Convert 'Tons' to numeric (removing commas, trimming spaces).
+      - Convert 'Tons' to numeric (remove commas and trim spaces).
       - Create a datetime column ('Period_dt') from Month and Year.
       - Generate an ordered categorical 'Period' (format "Mon-Year") for time‑series analysis.
     """
@@ -110,7 +110,7 @@ def load_csv_data(uploaded_file) -> pd.DataFrame:
     """Load CSV data with caching and remove extraneous unnamed columns."""
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
-        # Remove columns with names that start with 'Unnamed'
+        # Remove any columns that start with "Unnamed"
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         return df
     except Exception as e:
@@ -138,20 +138,18 @@ def upload_data():
         sheet_url = config.GOOGLE_SHEET_LINK
         sheet_name = config.DEFAULT_SHEET_NAME
         try:
-            # Extract the sheet ID from the URL.
             sheet_id = sheet_url.split("/d/")[1].split("/")[0]
             csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
             response = requests.get(csv_url)
             response.raise_for_status()
             df = pd.read_csv(StringIO(response.text), low_memory=False)
-            # Remove extraneous unnamed columns
             df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
             st.success("✅ Google Sheet loaded successfully from configuration.")
         except Exception as e:
             st.error(f"🚨 Error loading Google Sheet from config: {e}")
             logger.error("Error loading Google Sheet from config: %s", e)
     
-    # Prompt the user if no auto-loaded data.
+    # If no auto-loaded data, allow the user to choose a source.
     if df is None:
         upload_option = st.radio("📥 Choose Data Source:", ("Upload CSV", "Google Sheet Link"), index=0, key="data_source_option")
         if upload_option == "Upload CSV":
@@ -173,7 +171,6 @@ def upload_data():
                     response = requests.get(csv_url)
                     response.raise_for_status()
                     df = pd.read_csv(StringIO(response.text), low_memory=False)
-                    # Remove extraneous unnamed columns
                     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
                 except Exception as e:
                     st.error(f"🚨 Error loading Google Sheet: {e}")
@@ -222,7 +219,6 @@ def display_footer():
 # Main Application
 # -----------------------------------------------------------------------------
 def main():
-    # Sidebar Navigation and Options
     with st.sidebar:
         nav_options = [
             "Home",
@@ -255,7 +251,7 @@ def main():
     # Ensure the user is authenticated
     authenticate_user()
 
-    # Render the appropriate page based on navigation
+    # Render the page content based on navigation selection
     if selected_page == "Home":
         st.markdown('<div class="main-content">', unsafe_allow_html=True)
         st.header("Executive Summary & Data Upload")
