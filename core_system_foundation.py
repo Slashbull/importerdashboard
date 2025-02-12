@@ -107,9 +107,11 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def load_csv_data(uploaded_file) -> pd.DataFrame:
-    """Load CSV data with caching."""
+    """Load CSV data with caching and remove extraneous unnamed columns."""
     try:
         df = pd.read_csv(uploaded_file, low_memory=False)
+        # Remove columns with names that start with 'Unnamed'
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         return df
     except Exception as e:
         st.error(f"🚨 Error processing CSV file: {e}")
@@ -142,6 +144,8 @@ def upload_data():
             response = requests.get(csv_url)
             response.raise_for_status()
             df = pd.read_csv(StringIO(response.text), low_memory=False)
+            # Remove extraneous unnamed columns
+            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
             st.success("✅ Google Sheet loaded successfully from configuration.")
         except Exception as e:
             st.error(f"🚨 Error loading Google Sheet from config: {e}")
@@ -169,6 +173,8 @@ def upload_data():
                     response = requests.get(csv_url)
                     response.raise_for_status()
                     df = pd.read_csv(StringIO(response.text), low_memory=False)
+                    # Remove extraneous unnamed columns
+                    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
                 except Exception as e:
                     st.error(f"🚨 Error loading Google Sheet: {e}")
                     logger.error("Error loading Google Sheet: %s", e)
