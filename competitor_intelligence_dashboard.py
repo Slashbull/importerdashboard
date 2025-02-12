@@ -11,8 +11,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.warning("⚠️ No data available. Please upload a dataset first.")
         return
 
-    # Ensure required columns are present.
-    required_columns = ["Consignee", "Exporter", "Tons", "Month", "Year", "Consignee State"]
+    required_columns = ["Consignee", "Exporter", "Tons", "Month", "Year"]
     missing = [col for col in required_columns if col not in data.columns]
     if missing:
         st.error(f"🚨 Missing columns: {', '.join(missing)}")
@@ -67,25 +66,14 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         # Toggle to view only top 10 or all competitors.
         show_top_exporters = st.checkbox("Show only top 10 competitors", value=True, key="show_top_exporters")
         if show_top_exporters:
-            candidate_competitors = (
-                data.groupby("Consignee")["Tons"]
-                .sum()
-                .nlargest(10)
-                .reset_index()["Consignee"]
-                .tolist()
-            )
+            candidate_competitors = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
         else:
             candidate_competitors = sorted(data["Consignee"].dropna().unique().tolist())
             
         if candidate_competitors:
             selected_competitor = st.selectbox("Select a Competitor:", candidate_competitors, key="ci_selected_competitor")
             comp_data = data[data["Consignee"] == selected_competitor]
-            exporter_breakdown = (
-                comp_data.groupby("Exporter")["Tons"]
-                .sum()
-                .reset_index()
-                .sort_values("Tons", ascending=False)
-            )
+            exporter_breakdown = comp_data.groupby("Exporter")["Tons"].sum().reset_index().sort_values("Tons", ascending=False)
             st.markdown(f"### Exporters for {selected_competitor}")
             fig_export = px.bar(
                 exporter_breakdown,
@@ -112,13 +100,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
         st.subheader("Detailed Growth Analysis")
         show_top_growth = st.checkbox("Show only top 10 competitors", value=True, key="show_top_growth")
         if show_top_growth:
-            candidate_for_growth = (
-                data.groupby("Consignee")["Tons"]
-                .sum()
-                .nlargest(10)
-                .reset_index()["Consignee"]
-                .tolist()
-            )
+            candidate_for_growth = data.groupby("Consignee")["Tons"].sum().nlargest(10).reset_index()["Consignee"].tolist()
         else:
             candidate_for_growth = sorted(data["Consignee"].dropna().unique().tolist())
             
@@ -157,9 +139,9 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
             )
             st.plotly_chart(fig_compare, use_container_width=True)
             
-            # Create a pivot table for detailed volume including Consignee State.
+            # Create a pivot table for detailed volume.
             pivot_table = detailed_data.pivot_table(
-                index=["Consignee", "Consignee State"],
+                index="Consignee",
                 columns="Period",
                 values="Tons",
                 aggfunc="sum",
@@ -169,7 +151,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
             pivot_table["Total"] = pivot_table.sum(axis=1)
             # Add a total row.
             total_row = pd.DataFrame(pivot_table.sum(axis=0)).T
-            total_row.index = [("Total", "")]
+            total_row.index = ["Total"]
             pivot_table_with_total = pd.concat([pivot_table, total_row])
             st.markdown("#### Detailed Volume Pivot Table (with Totals)")
             st.dataframe(pivot_table_with_total)
@@ -181,7 +163,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                 all_periods = sorted(detailed_data["Period"].dropna().unique().tolist())
                 selected_periods = st.multiselect("Select Period(s):", all_periods, default=all_periods, key="ci_period")
                 monthly_pivot = detailed_data.pivot_table(
-                    index=["Consignee", "Consignee State"],
+                    index="Consignee",
                     columns="Period",
                     values="Tons",
                     aggfunc="sum",
@@ -191,7 +173,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                     monthly_pivot = monthly_pivot[[col for col in monthly_pivot.columns if col in selected_periods]]
                 monthly_pivot["Total"] = monthly_pivot.sum(axis=1)
                 monthly_total_row = pd.DataFrame(monthly_pivot.sum(axis=0)).T
-                monthly_total_row.index = [("Total", "")]
+                monthly_total_row.index = ["Total"]
                 monthly_pivot_with_total = pd.concat([monthly_pivot, monthly_total_row])
                 st.dataframe(monthly_pivot_with_total)
                 monthly_trends = detailed_data.groupby(["Consignee", "Period"])["Tons"].sum().reset_index()
@@ -208,7 +190,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
             with st.expander("Yearly Analysis"):
                 st.markdown("##### Yearly Volume and Trends")
                 yearly_pivot = detailed_data.pivot_table(
-                    index=["Consignee", "Consignee State"],
+                    index="Consignee",
                     columns="Year",
                     values="Tons",
                     aggfunc="sum",
@@ -216,7 +198,7 @@ def competitor_intelligence_dashboard(data: pd.DataFrame):
                 )
                 yearly_pivot["Total"] = yearly_pivot.sum(axis=1)
                 yearly_total_row = pd.DataFrame(yearly_pivot.sum(axis=0)).T
-                yearly_total_row.index = [("Total", "")]
+                yearly_total_row.index = ["Total"]
                 yearly_pivot_with_total = pd.concat([yearly_pivot, yearly_total_row])
                 st.dataframe(yearly_pivot_with_total)
                 yearly_trends = detailed_data.groupby(["Consignee", "Year"])["Tons"].sum().reset_index()
